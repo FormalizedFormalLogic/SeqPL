@@ -33,6 +33,7 @@ abbrev FormulaFinset := Finset Formula
 
 abbrev FormulaFinset.box (Γ : FormulaFinset) : FormulaFinset := Γ.image (□·)
 
+
 structure Sequent where
   ant : FormulaFinset
   suc : FormulaFinset
@@ -162,3 +163,169 @@ lemma axiomL  : ⊢ (∅ ⟹ {□(□A 🡒 A) 🡒 □A}) := ⟨Proof.axiomL⟩
 lemma ruleNec : ⊢ (∅ ⟹ {A}) → ⊢ (∅ ⟹ {□A}) := λ ⟨p⟩ => ⟨Proof.ruleNec p⟩
 
 end Provable
+
+abbrev Unprovable (S : Sequent) : Prop := ¬⊢ S
+prefix:120 "⊬ " => Unprovable
+
+
+section Semantics
+
+structure Model (κ : Type*) where
+  Rel' : κ → κ → Prop
+  Val : κ → ℕ → Prop
+
+namespace Model
+
+abbrev World (_ : Model κ) := κ
+abbrev Rel {M : Model κ} : M.World → M.World → Prop := M.Rel'
+infixl:60 " ≺ " => Rel
+
+end Model
+
+variable {M : Model κ} {A B : Formula} {Γ Γ' Δ Δ' : FormulaFinset}
+
+@[grind]
+def Formula.Forced {M : Model κ} (x : M.World) : Formula → Prop
+| #a    => M.Val x a
+| ⊥     => False
+| A 🡒 B => Forced x A → Forced x B
+| □A    => ∀ y, x ≺ y → Forced y A
+infix:55 " ⊩ " => Formula.Forced
+
+lemma Formula.iff_not_forced_box {M : Model κ} {x : M.World} {A : Formula} : ¬x ⊩ □A ↔ ∃ y, x ≺ y ∧ ¬y ⊩ A := by grind;
+
+@[grind]
+def Formula.Valid (M : Model κ) (A : Formula) : Prop := ∀ x : M.World, x ⊩ A
+infix:50 " ⊧ " => Formula.Valid
+
+
+def FormulaFinset.Forced {M : Model κ} (x : M.World) (Γ : FormulaFinset) : Prop := ∀ A ∈ Γ, x ⊩ A
+infix:55 " ⊩ " => FormulaFinset.Forced
+
+
+@[grind]
+def Sequent.Forced {M : Model κ} (x : M.World) (S : Sequent) : Prop := (∀ C ∈ S.ant, x ⊩ C) → (∃ D ∈ S.suc, x ⊩ D)
+infix:55 " ⊩ " => Sequent.Forced
+
+lemma Sequent.forced_succ_singleton {M : Model κ} {x : M.World} : x ⊩ (Γ ⟹ {A}) ↔ (∀ C ∈ Γ, x ⊩ C) → x ⊩ A := by grind;
+
+@[grind]
+def Sequent.Valid (M : Model κ) (S : Sequent) : Prop := ∀ x : M.World, x ⊩ S
+infix:50 " ⊧ " => Sequent.Valid
+
+
+section soundness
+
+variable {M : Model κ} {Γ Γ' Δ Δ' : FormulaFinset} {A B : Formula}
+
+lemma valid_axm : M ⊧ ({A} ⟹ {A}) := by
+  intro x h;
+  use A;
+  constructor;
+  . grind;
+  . exact h _ (by grind);
+
+lemma valid_botL : M ⊧ ({⊥} ⟹ ∅) := by
+  intro x;
+  simp [Sequent.Forced, Formula.Forced];
+
+lemma valid_wkL (h : M ⊧ (Γ ⟹ Δ)) (hΓ : Γ ⊆ Γ' := by grind) : M ⊧ (Γ' ⟹ Δ) := by
+  intro x h';
+  apply h;
+  grind;
+
+lemma valid_wkR (h : M ⊧ (Γ ⟹ Δ)) (hΔ : Δ ⊆ Δ' := by grind) : M ⊧ (Γ ⟹ Δ') := by
+  intro x hΓ;
+  obtain ⟨D, hD₁, hD₂⟩ := h x hΓ;
+  grind;
+
+lemma valid_impL (hA : M ⊧ (Γ ⟹ insert A Δ)) (hB : M ⊧ (insert B Γ ⟹ Δ)) : M ⊧ ((insert (A 🡒 B) Γ) ⟹ Δ) := by
+  intro x h;
+  replace hA := hA x
+  replace hB := hB x;
+  simp only [Finset.mem_insert, forall_eq_or_imp] at h;
+  grind;
+
+lemma valid_impR (h : M ⊧ ((insert A Γ) ⟹ (insert B Δ))) : M ⊧ (Γ ⟹ (insert (A 🡒 B) Δ)) := by
+  intro x hΓ;
+  by_cases x ⊩ A;
+  . obtain ⟨D, hD₁, hD₂⟩ := h x $ by grind;
+    simp at hD₁;
+    rcases hD₁ with (rfl | hD₁);
+    . use A 🡒 D; grind;
+    . use D; grind;
+  . use A 🡒 B;
+    grind;
+
+
+namespace Model
+
+abbrev _root_.IsConverseWellFounded (α) (R : α → α → Prop) := IsWellFounded α (λ x y => R y x)
+
+lemma has_terminal [IsConverseWellFounded _ M.Rel'] : ∀ (W : Set M.World), Set.Nonempty W → ∃ t ∈ W, ∀ x ∈ W, ¬(t ≺ x) :=
+  WellFounded.wellFounded_iff_has_min.mp (by apply IsWellFounded.wf)
+
+class IsGL (M : Model κ) extends IsTrans _ M.Rel', IsConverseWellFounded _ M.Rel'
+
+class IsFiniteGL (M : Model κ) extends Fact (Finite M.World), IsTrans _ M.Rel', Std.Irrefl M.Rel'
+
+end Model
+
+
+
+lemma valid_boxGL [M.IsGL] (h : M ⊧ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : M ⊧ (Γ.box ⟹ {□A}) := by
+  intro x;
+  apply Sequent.forced_succ_singleton.mpr;
+  intro hΓ y Rxy;
+  apply Sequent.forced_succ_singleton.mp $ h y;
+  simp only [Finset.mem_insert, Finset.mem_union, Finset.mem_image, forall_eq_or_imp];
+  refine ⟨?_, ?_⟩;
+  . by_contra hC;
+    obtain ⟨z, Ryz, hz⟩ := Formula.iff_not_forced_box.mp hC;
+    obtain ⟨t, ⟨Ryt, hntA⟩, ht₂⟩ := M.has_terminal ({z | y ≺ z ∧ ¬z ⊩ A}) ⟨z, ⟨Ryz, hz⟩⟩;
+    apply hntA;
+    apply Sequent.forced_succ_singleton.mp $ h t;
+    simp;
+    constructor;
+    . rintro t' Rtt';
+      by_contra;
+      exact ht₂ t' ⟨_root_.trans Ryt Rtt', by assumption⟩ Rtt';
+    . rintro C (hC | ⟨C, hC, rfl⟩);
+      . apply hΓ (□C) (by simpa) t;
+        apply _root_.trans Rxy Ryt;
+      . intro t' Rtt';
+        apply hΓ (□C) (by simpa) t';
+        apply _root_.trans (_root_.trans Rxy Ryt) Rtt';
+  . rintro C (hC | ⟨C, hC, rfl⟩);
+    . exact hΓ (□C) (by simpa) y Rxy;
+    . intro z Ryz;
+      exact hΓ (□C) (by simpa) z (_root_.trans Rxy Ryz);
+
+theorem soundness (h : ⊢ S) : ∀ {κ}, ∀ M : Model κ, [M.IsGL] → M ⊧ S := by
+  obtain ⟨p⟩ := h;
+  intro _ M M_finiteGL;
+  induction p with
+  | axm A => exact valid_axm
+  | botL => exact valid_botL
+  | wkL h _ ih => exact valid_wkL ih;
+  | wkR h _ ih => exact valid_wkR ih;
+  | impL _ _ ih₁ ih₂ => exact valid_impL ih₁ ih₂
+  | impR _ ih => exact valid_impR ih
+  | boxGL _ ih => exact valid_boxGL ih
+
+
+def trivial_GL_model : Model (Fin 1) where
+  Rel' := λ _ _ => False
+  Val := λ _ _ => False
+
+instance : trivial_GL_model.IsGL where
+  trans x y z hxy hyz := by tauto;
+  wf := @Finite.wellFounded_of_trans_of_irrefl (Fin 1) inferInstance _ ⟨by tauto⟩ ⟨by tauto⟩
+
+lemma not_provable_empty : ⊬ (∅ ⟹ ∅) := by
+  by_contra h;
+  simpa [Sequent.Forced] using (soundness h trivial_GL_model) 0;
+
+end soundness
+
+end Semantics
