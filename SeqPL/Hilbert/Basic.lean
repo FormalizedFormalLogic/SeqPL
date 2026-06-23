@@ -306,21 +306,33 @@ theorem of_provableGentzen : ⊢ᵍ S → ⊢ʰ (⋀S.ant) 🡒 (⋁S.suc) := by
     simp_all;
     sorry;
 
+theorem of_provableGentzen_singleton : ⊢ᵍ (∅ ⟹ {A}) → ⊢ʰ A := by
+  intro h;
+  simpa using mdp (of_provableGentzen h) (by simp);
+
+
+namespace Kripke
+
+theorem soundness (h : ⊢ʰ A) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ, [M.IsGL] → M ⊧ A := by
+  intro κ _ M _ x;
+  have := ProvableGentzen.of_provableHilbert h;
+  have := ProvableGentzen.Kripke.soundness this M x;
+  exact x.forces_singleton_sequent.mp this;
+
+theorem finite_soundness (h : ⊢ʰ A) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ A := by
+  intro κ _ _ _;
+  apply soundness h;
+
+theorem completeness (h : ∀ {κ : Type 0}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ A): ⊢ʰ A := by
+  apply of_provableGentzen_singleton;
+  apply ProvableGentzen.Kripke.completeness;
+  intro κ _ M _ x;
+  apply x.forces_singleton_sequent.mpr
+  apply h;
+
+end Kripke
+
+
 end ProvableHilbert
-
-
-theorem LogicGL_TFAE : [
-  ⊢ʰ A,
-  ⊢ᵍ (∅ ⟹ {A}),
-  ⊢ᵍᶜ (∅ ⟹ {A})
-].TFAE
-  := by
-  tfae_have 1 → 2 := ProvableGentzen.of_provableHilbert;
-  tfae_have 2 → 1 := by
-    intro h;
-    simpa using ProvableHilbert.mdp (ProvableHilbert.of_provableGentzen (S := ∅ ⟹ {A}) h) (by simp);
-  tfae_have 2 → 3 := GentzenWithCutProvable.of_without_cut;
-  tfae_have 3 → 2 := ProvableGentzen.of_with_cut;
-  tfae_finish;
 
 end

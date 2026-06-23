@@ -6,3 +6,4 @@ public import SeqPL.Gentzen.WithCut
 public import SeqPL.Hilbert.Basic
 public import SeqPL.Kripke.Basic
 public import SeqPL.Kripke.Gentzen
+public import SeqPL.Logic.Basic

@@ -21,11 +21,14 @@ instance : trivial_GL_model.IsFiniteGL where
 
 namespace Model.World
 
+variable {M : Model κ} {x : M.World}
+
 @[grind]
 def ForcesSequent (x : M.World) (S : Sequent) : Prop := (∀ C ∈ S.ant, x ⊩ C) → (∃ D ∈ S.suc, x ⊩ D)
 infix:55 " ⊩ " => ForcesSequent
 
-lemma forced_succ_singleton_sequent {M : Model κ} {x : M.World} : x ⊩ (Γ ⟹ {A}) ↔ (∀ C ∈ Γ, x ⊩ C) → x ⊩ A := by grind;
+lemma forces_ctx_singleton_sequent : x ⊩ (Γ ⟹ {A}) ↔ (∀ C ∈ Γ, x ⊩ C) → x ⊩ A := by grind;
+lemma forces_singleton_sequent : x ⊩ (∅ ⟹ {A}) ↔ (x ⊩ A) := by grind;
 
 end Model.World
 
@@ -81,16 +84,16 @@ lemma validate_gentzen_impR (h : M ⊧ ((insert A Γ) ⟹ (insert B Δ))) : M �
 open Model.World
 lemma validate_gentzen_boxGL [M.IsGL] (h : M ⊧ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : M ⊧ (Γ.box ⟹ {□A}) := by
   intro x;
-  apply forced_succ_singleton_sequent.mpr;
+  apply forces_ctx_singleton_sequent.mpr;
   intro hΓ y Rxy;
-  apply forced_succ_singleton_sequent.mp $ h y;
+  apply forces_ctx_singleton_sequent.mp $ h y;
   simp only [Finset.mem_insert, Finset.mem_union, Finset.mem_image, forall_eq_or_imp];
   refine ⟨?_, ?_⟩;
   . by_contra hC;
     obtain ⟨z, Ryz, hz⟩ := iff_not_forced_box.mp hC;
     obtain ⟨t, ⟨Ryt, hntA⟩, ht₂⟩ := M.has_terminal ({z | y ≺ z ∧ ¬z ⊩ A}) ⟨z, ⟨Ryz, hz⟩⟩;
     apply hntA;
-    apply forced_succ_singleton_sequent.mp $ h t;
+    apply forces_ctx_singleton_sequent.mp $ h t;
     simp;
     constructor;
     . rintro t' Rtt';
@@ -392,12 +395,12 @@ theorem deduction_theorem : ⊢ᵍ (insert A Γ ⟹ {B}) ↔ ⊢ᵍ (Γ ⟹ {A �
     constructor;
     . simp;
     . intro hA;
-      exact (Model.World.forced_succ_singleton_sequent.mp $ Kripke.finite_soundness h M x) (by grind);
+      exact (Model.World.forces_ctx_singleton_sequent.mp $ Kripke.finite_soundness h M x) (by grind);
   . intro h;
     apply Kripke.completeness;
     intro κ _ M _ x;
-    apply Model.World.forced_succ_singleton_sequent.mpr;
+    apply Model.World.forces_ctx_singleton_sequent.mpr;
     intro H;
-    exact (Model.World.forced_succ_singleton_sequent.mp $ Kripke.finite_soundness h M x) (by grind) (by grind);
+    exact (Model.World.forces_ctx_singleton_sequent.mp $ Kripke.finite_soundness h M x) (by grind) (by grind);
 
 end ProvableGentzen
