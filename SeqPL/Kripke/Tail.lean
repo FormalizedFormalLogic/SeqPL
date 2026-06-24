@@ -5,18 +5,18 @@ public import SeqPL.Kripke.RootExtension
 @[expose]
 public section
 
-variable [Nonempty κ] {M : Model κ} {n : ℕ+} {A B : Formula} {Γ Γ' Δ Δ' : FormulaFinset}
+variable [Nonempty κ] {M : Model κ α} {n : ℕ+} {A B : Formula α} {Γ Γ' Δ Δ' : FormulaFinset α}
 
 namespace Model
 
-abbrev toTail (M : Model κ) (r : M.root) : Model (κ ⊕ ℕ∞) where
+abbrev toTail (M : Model κ α) (r : M.root) : Model (κ ⊕ ℕ∞) α where
   Rel' x y :=
     match x, y with
     | .inl x, .inl y => M.Rel x y
     | .inl _, .inr _ => False
     | .inr _, .inl _ => True
     | .inr i, .inr j => j < i
-  Val x a :=
+  Val' x a :=
     match x with
     | .inl x => M.Val x a
     | .inr _ => M.Val r a
@@ -25,7 +25,7 @@ namespace toTail
 
 variable {r : M.root}
 
-protected abbrev root (M : Model κ) (r : M.root) : (M.toTail r).root := ⟨.inr ⊤, by
+protected abbrev root (M : Model κ α) (r : M.root) : (M.toTail r).root := ⟨.inr ⊤, by
   intro x hx;
   match x with
   | .inl x => simp_all [toTail, Model.Rel]
@@ -55,7 +55,7 @@ instance [Std.Irrefl M.Rel] : Std.Irrefl (M.toTail r).Rel := by
   | .inl x => simp_all only [Model.Rel]; apply Std.Irrefl.irrefl
   | .inr i => simp [Model.Rel];
 
-protected abbrev tail (M : Model κ) (r : M.root) : ℕ+ → (M.toTail r).World := λ n => .inr n
+protected abbrev tail (M : Model κ α) (r : M.root) : ℕ+ → (M.toTail r).World := λ n => .inr n
 
 @[simp]
 lemma tail_isChain (h : i < j) : ((toTail.tail M r) j ≺ (toTail.tail M r) i) := by

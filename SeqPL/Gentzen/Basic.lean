@@ -6,15 +6,18 @@ public import SeqPL.Formula
 @[expose]
 public section
 
-structure Sequent where
-  ant : FormulaFinset
-  suc : FormulaFinset
+universe u
+variable {α : Type u} [DecidableEq α]
+
+structure Sequent (α : Type u) where
+  ant : FormulaFinset α
+  suc : FormulaFinset α
 
 infix:50 " ⟹ " => Sequent.mk
 
-inductive ProofGentzen : Sequent → Type
+inductive ProofGentzen : Sequent α → Type u
 | axm (A) : ProofGentzen ({A} ⟹ {A})
-| botL : ProofGentzen ({⊥} ⟹ ∅)
+| botL : ProofGentzen ({⊥} ⟹ (∅ : FormulaFinset α))
 | wkL  {Γ Γ' Δ}  : ProofGentzen (Γ ⟹ Δ) → (_ : Γ ⊆ Γ' := by grind) → ProofGentzen (Γ' ⟹ Δ)
 | wkR  {Γ Δ Δ'}  : ProofGentzen (Γ ⟹ Δ) → (_ : Δ ⊆ Δ' := by grind) → ProofGentzen (Γ ⟹ Δ')
 | impL {Γ Δ A B} : ProofGentzen (Γ ⟹ (insert A Δ)) → ProofGentzen (insert B Γ ⟹ Δ) → ProofGentzen ((insert (A 🡒 B) Γ) ⟹ Δ)
@@ -25,9 +28,9 @@ prefix:120 "⊢ᵍ! " => ProofGentzen
 
 namespace ProofGentzen
 
-variable {Γ Δ : FormulaFinset} {A B C : Formula}
+variable {Γ Δ : FormulaFinset α} {A B C : Formula α}
 
-def union (A) {Γ Δ : Finset _} (hΓ : A ∈ Γ := by grind) (hΔ : A ∈ Δ := by grind) : ⊢ᵍ! (Γ ⟹ Δ) := wkR $ wkL $ axm A
+def union (A) {Γ Δ : FormulaFinset α} (hΓ : A ∈ Γ := by grind) (hΔ : A ∈ Δ := by grind) : ⊢ᵍ! (Γ ⟹ Δ) := wkR $ wkL $ axm A
 
 def botL_mem (h : ⊥ ∈ Γ := by grind) : ⊢ᵍ! (Γ ⟹ Δ) := wkR (Δ := ∅) $ wkL botL
 
@@ -120,25 +123,25 @@ end ProofGentzen
 
 
 
-abbrev ProvableGentzen (S : Sequent) : Prop := Nonempty (⊢ᵍ! S)
+abbrev ProvableGentzen (S : Sequent α) : Prop := Nonempty (⊢ᵍ! S)
 prefix:120 "⊢ᵍ " => ProvableGentzen
 
 namespace ProvableGentzen
 
-variable {Γ Δ : FormulaFinset} {A B C : Formula}
+variable {Γ Γ' Δ Δ' : FormulaFinset α} {A B C : Formula α}
 
-lemma axm (A) : ⊢ᵍ ({A} ⟹ {A}) := ⟨ProofGentzen.axm A⟩
-@[grind =>] lemma union (A) (hΓ : A ∈ Γ := by grind) (hΔ : A ∈ Δ := by grind) : ⊢ᵍ (Γ ⟹ Δ) := ⟨ProofGentzen.union A hΓ hΔ⟩
-@[grind =>] lemma union' (A) {S : Sequent} (hΓ : A ∈ S.ant := by grind) (hΔ : A ∈ S.suc := by grind) : ⊢ᵍ S := union A hΓ hΔ
-lemma botL : ⊢ᵍ ({⊥} ⟹ ∅) := ⟨ProofGentzen.botL⟩
+lemma axm (A : Formula α) : ⊢ᵍ ({A} ⟹ {A}) := ⟨ProofGentzen.axm A⟩
+@[grind =>] lemma union (A : Formula α) (hΓ : A ∈ Γ := by grind) (hΔ : A ∈ Δ := by grind) : ⊢ᵍ (Γ ⟹ Δ) := ⟨ProofGentzen.union A hΓ hΔ⟩
+@[grind =>] lemma union' (A : Formula α) {S : Sequent α} (hΓ : A ∈ S.ant := by grind) (hΔ : A ∈ S.suc := by grind) : ⊢ᵍ S := union A hΓ hΔ
+lemma botL : ⊢ᵍ ({⊥} ⟹ (∅ : FormulaFinset α)) := ⟨ProofGentzen.botL⟩
 @[grind =>] lemma botL_mem (h : ⊥ ∈ Γ := by grind) : ⊢ᵍ (Γ ⟹ Δ) := ⟨ProofGentzen.botL_mem h⟩
-@[grind =>] lemma botL_mem' (S : Sequent) (h : ⊥ ∈ S.ant := by grind) : ⊢ᵍ S := botL_mem h
-lemma wkL {Γ Γ' Δ} (π : ⊢ᵍ (Γ ⟹ Δ)) (h : Γ ⊆ Γ') : ⊢ᵍ (Γ' ⟹ Δ) := ⟨ProofGentzen.wkL π.some h⟩
-lemma wkR {Γ Δ Δ'} (π : ⊢ᵍ (Γ ⟹ Δ)) (h : Δ ⊆ Δ') : ⊢ᵍ (Γ ⟹ Δ') := ⟨ProofGentzen.wkR π.some h⟩
-lemma wk {Γ Γ' Δ Δ'} (π : ⊢ᵍ (Γ ⟹ Δ)) (hΓ : Γ ⊆ Γ') (hΔ : Δ ⊆ Δ') : ⊢ᵍ (Γ' ⟹ Δ') := wkR (wkL π hΓ) hΔ
-lemma impL {Γ Δ A B} (π₁ : ⊢ᵍ (Γ ⟹ insert A Δ)) (π₂ : ⊢ᵍ (insert B Γ ⟹ Δ)) : ⊢ᵍ ((insert (A 🡒 B) Γ) ⟹ Δ) := ⟨ProofGentzen.impL π₁.some π₂.some⟩
-lemma impR {Γ Δ A B} (π : ⊢ᵍ ((insert A Γ) ⟹ (insert B Δ))) : ⊢ᵍ (Γ ⟹ (insert (A 🡒 B) Δ)) := ⟨ProofGentzen.impR π.some⟩
-lemma boxGL {Γ A} (π : ⊢ᵍ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : ⊢ᵍ (Γ.box ⟹ {□A}) := ⟨ProofGentzen.boxGL π.some⟩
+@[grind =>] lemma botL_mem' (S : Sequent α) (h : ⊥ ∈ S.ant := by grind) : ⊢ᵍ S := botL_mem h
+lemma wkL (π : ⊢ᵍ (Γ ⟹ Δ)) (h : Γ ⊆ Γ') : ⊢ᵍ (Γ' ⟹ Δ) := ⟨ProofGentzen.wkL π.some h⟩
+lemma wkR (π : ⊢ᵍ (Γ ⟹ Δ)) (h : Δ ⊆ Δ') : ⊢ᵍ (Γ ⟹ Δ') := ⟨ProofGentzen.wkR π.some h⟩
+lemma wk (π : ⊢ᵍ (Γ ⟹ Δ)) (hΓ : Γ ⊆ Γ') (hΔ : Δ ⊆ Δ') : ⊢ᵍ (Γ' ⟹ Δ') := wkR (wkL π hΓ) hΔ
+lemma impL (π₁ : ⊢ᵍ (Γ ⟹ insert A Δ)) (π₂ : ⊢ᵍ (insert B Γ ⟹ Δ)) : ⊢ᵍ ((insert (A 🡒 B) Γ) ⟹ Δ) := ⟨ProofGentzen.impL π₁.some π₂.some⟩
+lemma impR (π : ⊢ᵍ ((insert A Γ) ⟹ (insert B Δ))) : ⊢ᵍ (Γ ⟹ (insert (A 🡒 B) Δ)) := ⟨ProofGentzen.impR π.some⟩
+lemma boxGL (π : ⊢ᵍ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : ⊢ᵍ (Γ.box ⟹ {□A}) := ⟨ProofGentzen.boxGL π.some⟩
 
 lemma axiomŁ1 : ⊢ᵍ (∅ ⟹ {A 🡒 B 🡒 A}) := ⟨ProofGentzen.axiomŁ1⟩
 lemma axiomŁ2 : ⊢ᵍ (∅ ⟹ {(A 🡒 B 🡒 C) 🡒 (A 🡒 B) 🡒 (A 🡒 C)}) := ⟨ProofGentzen.axiomŁ2⟩
@@ -150,9 +153,9 @@ lemma ruleNec : ⊢ᵍ (∅ ⟹ {A}) → ⊢ᵍ (∅ ⟹ {□A}) := λ ⟨p⟩ =
 
 @[induction_eliminator]
 lemma rec
-  {motive : (S : Sequent) → ⊢ᵍ S → Prop}
+  {motive : (S : Sequent α) → ⊢ᵍ S → Prop}
   (axm : ∀ A, motive ({A} ⟹ {A}) (ProvableGentzen.axm A))
-  (botL : motive ({⊥} ⟹ ∅) ProvableGentzen.botL)
+  (botL : motive ({⊥} ⟹ (∅ : FormulaFinset α)) ProvableGentzen.botL)
   (wkL : ∀ {Γ Γ' Δ} (h : ⊢ᵍ (Γ ⟹ Δ)) (h' : Γ ⊆ Γ'), motive (Γ ⟹ Δ) h → motive (Γ' ⟹ Δ) (wkL h h'))
   (wkR : ∀ {Γ Δ Δ'} (h : ⊢ᵍ (Γ ⟹ Δ)) (h' : Δ ⊆ Δ'), motive (Γ ⟹ Δ) h → motive (Γ ⟹ Δ') (wkR h h'))
   (impL : ∀ {Γ Δ A B} (h₁ : ⊢ᵍ (Γ ⟹ insert A Δ)) (h₂ : ⊢ᵍ (insert B Γ ⟹ Δ)),
@@ -164,14 +167,14 @@ lemma rec
   (boxGL : ∀ {Γ A} (h : ⊢ᵍ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})),
     motive ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A}) h → motive (Γ.box ⟹ {□A}) (boxGL h)
   )
-  : ∀ {S : Sequent} (h : ⊢ᵍ S), motive S h := by
+  : ∀ {S : Sequent α} (h : ⊢ᵍ S), motive S h := by
     rintro S ⟨h⟩;
     induction h <;> grind;
 
 prefix:120 "⊬ᵍ " => λ S => ¬⊢ᵍ S
 
 @[grind =]
-lemma iff_unprovableGentzen_isEmpty_ProofGentzen {S : Sequent} : (⊬ᵍ S) ↔ (IsEmpty (⊢ᵍ! S)) := by simp [ProvableGentzen];
+lemma iff_unprovableGentzen_isEmpty_ProofGentzen {S : Sequent α} : (⊬ᵍ S) ↔ (IsEmpty (⊢ᵍ! S)) := by simp [ProvableGentzen];
 
 end ProvableGentzen
 

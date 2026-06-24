@@ -6,14 +6,17 @@ public import SeqPL.Gentzen.Basic
 @[expose]
 public section
 
-variable [Nonempty κ] {M : Model κ} {A B : Formula} {Γ Γ' Δ Δ' : FormulaFinset}
+variable {κ : Type u} [Nonempty κ]
+         {α : Type v} [DecidableEq α]
+         {M : Model κ α}
+         {A B : Formula α} {Γ Γ' Δ Δ' : FormulaFinset α}
 
 
-abbrev trivial_GL_model : Model (Fin 1) where
+abbrev trivial_GL_model {α} : Model (Fin 1) α where
   Rel' := λ _ _ => False
-  Val := λ _ _ => False
+  Val' := λ _ _ => False
 
-instance : trivial_GL_model.IsFiniteGL where
+instance : trivial_GL_model (α := α) |>.IsFiniteGL where
   finite := inferInstance;
   trans  := by tauto;
   irrefl := by tauto;
@@ -21,14 +24,14 @@ instance : trivial_GL_model.IsFiniteGL where
 
 namespace Model.World
 
-variable {M : Model κ} {x : M.World}
+variable {M : Model κ α} {x : M.World}
 
 @[grind]
-def ForcesSequent (x : M.World) (S : Sequent) : Prop := (∀ C ∈ S.ant, x ⊩ C) → (∃ D ∈ S.suc, x ⊩ D)
+def ForcesSequent (x : M.World) (S : Sequent α) : Prop := (∀ C ∈ S.ant, x ⊩ C) → (∃ D ∈ S.suc, x ⊩ D)
 infix:55 " ⊩ " => ForcesSequent
 
-lemma forces_ctx_singleton_sequent : x ⊩ (Γ ⟹ {A}) ↔ (∀ C ∈ Γ, x ⊩ C) → x ⊩ A := by grind;
-lemma forces_singleton_sequent : x ⊩ (∅ ⟹ {A}) ↔ (x ⊩ A) := by grind;
+omit [DecidableEq α] in lemma forces_ctx_singleton_sequent : x ⊩ (Γ ⟹ {A}) ↔ (∀ C ∈ Γ, x ⊩ C) → x ⊩ A := by grind;
+omit [DecidableEq α] in lemma forces_singleton_sequent : x ⊩ (∅ ⟹ {A}) ↔ (x ⊩ A) := by grind;
 
 end Model.World
 
@@ -36,11 +39,13 @@ end Model.World
 
 namespace Model
 
+omit [DecidableEq α]
+
 @[grind]
-def ValidateSequent (M : Model κ) (S : Sequent) : Prop := ∀ x : M.World, x ⊩ S
+def ValidateSequent (M : Model κ α) (S : Sequent α) : Prop := ∀ x : M.World, x ⊩ S
 infix:50 " ⊧ " => ValidateSequent
 
-variable {M : Model κ} {Γ Γ' Δ Δ' : FormulaFinset} {A B : Formula}
+variable {M : Model κ α} {Γ Γ' Δ Δ' : FormulaFinset α} {A B : Formula α}
 
 lemma validate_gentzen_axm : M ⊧ ({A} ⟹ {A}) := by
   intro x h;
@@ -63,14 +68,14 @@ lemma validate_gentzen_wkR (h : M ⊧ (Γ ⟹ Δ)) (hΔ : Δ ⊆ Δ' := by grind
   obtain ⟨D, hD₁, hD₂⟩ := h x hΓ;
   grind;
 
-lemma validate_gentzen_impL (hA : M ⊧ (Γ ⟹ insert A Δ)) (hB : M ⊧ (insert B Γ ⟹ Δ)) : M ⊧ ((insert (A 🡒 B) Γ) ⟹ Δ) := by
+lemma validate_gentzen_impL [DecidableEq α] (hA : M ⊧ (Γ ⟹ insert A Δ)) (hB : M ⊧ (insert B Γ ⟹ Δ)) : M ⊧ ((insert (A 🡒 B) Γ) ⟹ Δ) := by
   intro x h;
   replace hA := hA x
   replace hB := hB x;
   simp only [Finset.mem_insert, forall_eq_or_imp] at h;
   grind;
 
-lemma validate_gentzen_impR (h : M ⊧ ((insert A Γ) ⟹ (insert B Δ))) : M ⊧ (Γ ⟹ (insert (A 🡒 B) Δ)) := by
+lemma validate_gentzen_impR [DecidableEq α] (h : M ⊧ ((insert A Γ) ⟹ (insert B Δ))) : M ⊧ (Γ ⟹ (insert (A 🡒 B) Δ)) := by
   intro x hΓ;
   by_cases x ⊩ A;
   . obtain ⟨D, hD₁, hD₂⟩ := h x $ by grind;
@@ -81,8 +86,9 @@ lemma validate_gentzen_impR (h : M ⊧ ((insert A Γ) ⟹ (insert B Δ))) : M �
   . use A 🡒 B;
     grind;
 
+
 open Model.World
-lemma validate_gentzen_boxGL [M.IsGL] (h : M ⊧ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : M ⊧ (Γ.box ⟹ {□A}) := by
+lemma validate_gentzen_boxGL [DecidableEq α] [M.IsGL] (h : M ⊧ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : M ⊧ (Γ.box ⟹ {□A}) := by
   intro x;
   apply forces_ctx_singleton_sequent.mpr;
   intro hΓ y Rxy;
@@ -118,7 +124,7 @@ namespace ProvableGentzen
 namespace Kripke
 
 open Model in
-theorem soundness (h : ⊢ᵍ S) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ, [M.IsGL] → M ⊧ S := by
+theorem soundness (h : ⊢ᵍ S) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ α, [M.IsGL] → M ⊧ S := by
   obtain ⟨p⟩ := h;
   intro _ M M_finiteGL;
   induction p with
@@ -130,12 +136,12 @@ theorem soundness (h : ⊢ᵍ S) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ,
   | impR _ ih => exact validate_gentzen_impR ih
   | boxGL _ ih => exact validate_gentzen_boxGL ih
 
-theorem finite_soundness (h : ⊢ᵍ S) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ S := λ _ _ M [M.IsFiniteGL] => soundness h M
+theorem finite_soundness (h : ⊢ᵍ S) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ α, [M.IsFiniteGL] → M ⊧ S := λ _ _ M [M.IsFiniteGL] => soundness h M
 
 end Kripke
 
 @[simp, grind .]
-theorem not_provable_empty : ⊬ᵍ (∅ ⟹ ∅) := by
+theorem not_provable_empty : ⊬ᵍ (∅ ⟹ ∅ : Sequent α) := by
   by_contra h;
   have : (0 : trivial_GL_model.World) ⊩ (∅ ⟹ ∅) := Kripke.finite_soundness h trivial_GL_model 0;
   grind;
@@ -147,7 +153,7 @@ end ProvableGentzen
 
 namespace Formula
 
-def subfmls : Formula → Finset Formula
+def subfmls : Formula α → FormulaFinset α
 | #a    => {#a}
 | ⊥     => {⊥}
 | A 🡒 B => insert (A 🡒 B) (A.subfmls ∪ B.subfmls)
@@ -162,12 +168,12 @@ end Formula
 namespace FormulaFinset
 
 @[grind]
-def subfmls (Γ : FormulaFinset) : Finset Formula := Finset.biUnion Γ Formula.subfmls
+def subfmls (Γ : FormulaFinset α) : Finset (Formula α) := Finset.biUnion Γ Formula.subfmls
 
 @[grind .] lemma subset_self_subfmls : Γ ⊆ Γ.subfmls := by grind;
 
 @[grind]
-noncomputable def prebox (Γ : FormulaFinset) : FormulaFinset := Γ.preimage (□·) $ by grind [Set.InjOn];
+noncomputable def prebox (Γ : FormulaFinset α) : FormulaFinset α := Γ.preimage (□·) $ by grind [Set.InjOn];
 
 @[grind =]
 lemma iff_mem_prebox_mem : A ∈ Γ.prebox ↔ □A ∈ Γ := by simp [FormulaFinset.prebox];
@@ -178,30 +184,30 @@ end FormulaFinset
 namespace Sequent
 
 @[grind]
-def subfmls (S : Sequent) : Finset Formula := S.ant.subfmls ∪ S.suc.subfmls
+def subfmls (S : Sequent α) : Finset (Formula α) := S.ant.subfmls ∪ S.suc.subfmls
 
-structure subset (S T : Sequent) : Prop where
+structure subset (S T : Sequent α) : Prop where
   ant_subset : S.ant ⊆ T.ant
   suc_subset : S.suc ⊆ T.suc
 
-instance : HasSubset (Sequent) := ⟨subset⟩
+instance : HasSubset (Sequent α) := ⟨subset⟩
 
-variable {S : Sequent}
+variable {S : Sequent α}
 
 @[grind .] lemma subset_self_subfmls : S.ant ∪ S.suc ⊆ S.subfmls := by grind;
 
-structure Saturated (S : Sequent) where
+structure Saturated (S : Sequent α) where
   impL : ∀ {A B}, A 🡒 B ∈ S.1 → A ∈ S.2 ∨ B ∈ S.1
   impR : ∀ {A B}, A 🡒 B ∈ S.2 → A ∈ S.1 ∧ B ∈ S.2
 
-structure Expanded (BS : Sequent) (S : Sequent) extends S.Saturated where
+structure Expanded (BS : Sequent α) (S : Sequent α) extends S.Saturated where
   subset_subfmls : S.1 ∪ S.2 ⊆ BS.subfmls
   unProvableGentzen     : ⊬ᵍ S
 
 end Sequent
 
 
-structure ExpandedSequent (BS : Sequent) extends Sequent where
+structure ExpandedSequent (BS : Sequent α) extends Sequent α where
   saturated         : toSequent.Saturated
   subset_subfmls    : toSequent.1 ∪ toSequent.2 ⊆ BS.subfmls
   unProvableGentzen : ⊬ᵍ toSequent
@@ -210,7 +216,7 @@ namespace ExpandedSequent
 
 attribute [grind .] ExpandedSequent.saturated ExpandedSequent.subset_subfmls ExpandedSequent.unProvableGentzen
 
-variable {BS : Sequent} {S : ExpandedSequent BS} {A : Formula}
+variable {BS : Sequent α} {S : ExpandedSequent BS} {A : Formula α}
 
 @[grind .] lemma not_mem_both : ¬(A ∈ S.1.1 ∧ A ∈ S.1.2) := by grind;
 @[grind .] lemma not_mem_bot_ant : ⊥ ∉ S.1.1 := by grind;
@@ -219,10 +225,10 @@ variable {BS : Sequent} {S : ExpandedSequent BS} {A : Formula}
 
 section
 
-variable [Fact (⊬ᵍ BS)]
+variable {BS S₀ : Sequent α} [Fact (⊬ᵍ BS)]
 
 open Classical in
-noncomputable def lindenbaum_indexed (BS : Sequent) [Fact (⊬ᵍ BS)] {S₀} (hS₀ : ⊬ᵍ S₀) : List Formula → { S : Sequent // ⊬ᵍ S }
+noncomputable def lindenbaum_indexed (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀ : Sequent α} (hS₀ : ⊬ᵍ S₀) : FormulaList α → { S : Sequent α // ⊬ᵍ S }
 | [] => ⟨S₀, hS₀⟩
 | ((A 🡒 B) :: l) =>
   let ⟨S, hS⟩ := lindenbaum_indexed BS hS₀ l;
@@ -244,7 +250,7 @@ noncomputable def lindenbaum_indexed (BS : Sequent) [Fact (⊬ᵍ BS)] {S₀} (h
   else ⟨S, hS⟩
 | (_ :: l) => lindenbaum_indexed BS hS₀ l
 
-lemma mem_lindenbaum_indexed {BS : Sequent} [Fact (⊬ᵍ BS)] {S₀} {S₀_unProvableGentzen : ⊬ᵍ S₀} :
+lemma mem_lindenbaum_indexed [Fact (⊬ᵍ BS)] {S₀_unProvableGentzen : ⊬ᵍ S₀} :
   A ∈ (lindenbaum_indexed BS S₀_unProvableGentzen l).1.1 → A ∈ S₀.1 := by
   induction l with
   | nil => simp [lindenbaum_indexed];
@@ -260,7 +266,7 @@ lemma mem_lindenbaum_indexed {BS : Sequent} [Fact (⊬ᵍ BS)] {S₀} {S₀_unPr
         . sorry;
       . sorry;
 
-noncomputable def lindenbaum (BS : Sequent) [Fact (⊬ᵍ BS)]
+noncomputable def lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)]
   {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (S₀_unProvableGentzen : ⊬ᵍ S₀)
   : ExpandedSequent BS :=
   let S := lindenbaum_indexed BS S₀_unProvableGentzen (BS.subfmls.toList);
@@ -282,7 +288,7 @@ noncomputable def lindenbaum (BS : Sequent) [Fact (⊬ᵍ BS)]
       sorry;
   }
 
-lemma subset_lindenbaum (BS : Sequent) [Fact (⊬ᵍ BS)] {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (hS₀ : ⊬ᵍ S₀) : S₀ ⊆ (lindenbaum BS S₀_subfml hS₀).1 := by
+lemma subset_lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (hS₀ : ⊬ᵍ S₀) : S₀ ⊆ (lindenbaum BS S₀_subfml hS₀).1 := by
   sorry
 
 end
@@ -298,11 +304,11 @@ end ExpandedSequent
 
 namespace ProvableGentzen.Kripke
 
-variable {BS : Sequent} [Fact (⊬ᵍ BS)]
+variable {BS : Sequent α} [Fact (⊬ᵍ BS)]
 
 @[grind]
-def countermodelOf (BS : Sequent) [Fact (⊬ᵍ BS)] : Model (ExpandedSequent BS) where
-  Val S a := #a ∈ S.1.1
+def countermodelOf (BS : Sequent α) [Fact (⊬ᵍ BS)] : Model (ExpandedSequent BS) α where
+  Val' S a := #a ∈ S.1.1
   Rel' S T :=
     S.1.1.prebox ⊂ T.1.1.prebox ∧
     S.1.1.prebox ⊆ T.1.1
@@ -312,7 +318,7 @@ instance : (countermodelOf BS).IsFiniteGL where
   trans := by grind;
   irrefl := by grind;
 
-variable {S : (countermodelOf BS).World} {A : Formula}
+variable {S : (countermodelOf BS).World} {A : Formula α}
 
 lemma truthlemma :
   (A ∈ S.1.1 → S ⊩ A) ∧ (A ∈ S.1.2 → ¬S ⊩ A)
@@ -371,7 +377,7 @@ lemma truthlemma :
 lemma truthlemma_ant : A ∈ S.1.1 → S ⊩ A := truthlemma.1
 lemma truthlemma_suc : A ∈ S.1.2 → ¬S ⊩ A := truthlemma.2
 
-theorem completeness {S : Sequent} (h : ∀ {κ : Type 0}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ S) : ⊢ᵍ S := by
+theorem completeness {S : Sequent α} (h : ∀ {κ : Type v}, [Nonempty κ] → ∀ M : Model κ α, [M.IsFiniteGL] → M ⊧ S) : ⊢ᵍ S := by
   contrapose! h;
   replace h : Fact (⊬ᵍ S) := ⟨iff_unprovableGentzen_isEmpty_ProofGentzen.mpr h⟩;
   use (ExpandedSequent S), inferInstance, (countermodelOf S);

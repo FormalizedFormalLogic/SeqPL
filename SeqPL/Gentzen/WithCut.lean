@@ -6,7 +6,9 @@ public import SeqPL.Kripke.Gentzen
 @[expose]
 public section
 
-inductive GentzenWithCutProof : Sequent → Type
+variable {α : Type u} [DecidableEq α]
+
+inductive GentzenWithCutProof : Sequent α → Type u
 | axm (A) : GentzenWithCutProof ({A} ⟹ {A})
 | botL : GentzenWithCutProof ({⊥} ⟹ ∅)
 | wkL  {Γ Γ' Δ}  : GentzenWithCutProof (Γ ⟹ Δ) → (_ : Γ ⊆ Γ' := by grind) → GentzenWithCutProof (Γ' ⟹ Δ)
@@ -17,11 +19,11 @@ inductive GentzenWithCutProof : Sequent → Type
 | cut {Γ₁ Γ₂ Δ₁ Δ₂ A} : GentzenWithCutProof (Γ₁ ⟹ insert A Δ₁) → GentzenWithCutProof (insert A Γ₂ ⟹ Δ₂) → GentzenWithCutProof (Γ₁ ∪ Γ₂ ⟹ Δ₁ ∪ Δ₂)
 prefix:120 "⊢ᵍᶜ! " => GentzenWithCutProof
 
-abbrev GentzenWithCutProvable (S : Sequent) : Prop := Nonempty (⊢ᵍᶜ! S)
+abbrev GentzenWithCutProvable (S : Sequent α) : Prop := Nonempty (⊢ᵍᶜ! S)
 prefix:120 "⊢ᵍᶜ " => GentzenWithCutProvable
 
 
-def GentzenWithCutProof.ofGentzenProof : ⊢ᵍ! S → ⊢ᵍᶜ! S
+def GentzenWithCutProof.ofGentzenProof {S : Sequent α} : ⊢ᵍ! S → ⊢ᵍᶜ! S
 | .axm A => .axm A
 | .botL => .botL
 | .wkL h h' => .wkL (ofGentzenProof h) h'
@@ -32,21 +34,23 @@ def GentzenWithCutProof.ofGentzenProof : ⊢ᵍ! S → ⊢ᵍᶜ! S
 
 namespace GentzenWithCutProvable
 
+variable {S : Sequent α} {A B : Formula α} {Γ Γ' Γ₁ Γ₂ Δ Δ' Δ₁ Δ₂ : FormulaFinset α}
+
 theorem of_without_cut : ⊢ᵍ S → ⊢ᵍᶜ S := λ ⟨p⟩ => ⟨GentzenWithCutProof.ofGentzenProof p⟩
 
-lemma axm (A) : ⊢ᵍᶜ ({A} ⟹ {A}) := ⟨GentzenWithCutProof.axm A⟩
-lemma botL : ⊢ᵍᶜ ({⊥} ⟹ ∅) := ⟨GentzenWithCutProof.botL⟩
-lemma wkL {Γ Γ' Δ} (h : ⊢ᵍᶜ (Γ ⟹ Δ)) (h' : Γ ⊆ Γ') : ⊢ᵍᶜ (Γ' ⟹ Δ) := ⟨GentzenWithCutProof.wkL h.some h'⟩
-lemma wkR {Γ Δ Δ'} (h : ⊢ᵍᶜ (Γ ⟹ Δ)) (h' : Δ ⊆ Δ') : ⊢ᵍᶜ (Γ ⟹ Δ') := ⟨GentzenWithCutProof.wkR h.some h'⟩
-lemma impL {Γ Δ A B} (h₁ : ⊢ᵍᶜ (Γ ⟹ insert A Δ)) (h₂ : ⊢ᵍᶜ (insert B Γ ⟹ Δ)) : ⊢ᵍᶜ ((insert (A 🡒 B) Γ) ⟹ Δ) := ⟨GentzenWithCutProof.impL h₁.some h₂.some⟩
-lemma impR {Γ Δ A B} (h : ⊢ᵍᶜ ((insert A Γ) ⟹ (insert B Δ))) : ⊢ᵍᶜ (Γ ⟹ (insert (A 🡒 B) Δ)) := ⟨GentzenWithCutProof.impR h.some⟩
-lemma boxGL {Γ A} (h : ⊢ᵍᶜ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : ⊢ᵍᶜ (Γ.box ⟹ {□A}) := ⟨GentzenWithCutProof.boxGL h.some⟩
-lemma cut {Γ₁ Γ₂ Δ₁ Δ₂ A} (h₁ : ⊢ᵍᶜ (Γ₁ ⟹ insert A Δ₁)) (h₂ : ⊢ᵍᶜ (insert A Γ₂ ⟹ Δ₂)) : ⊢ᵍᶜ (Γ₁ ∪ Γ₂ ⟹ Δ₁ ∪ Δ₂) := ⟨GentzenWithCutProof.cut h₁.some h₂.some⟩
+lemma axm (A : Formula α) : ⊢ᵍᶜ ({A} ⟹ {A}) := ⟨GentzenWithCutProof.axm A⟩
+lemma botL : ⊢ᵍᶜ ({⊥} ⟹ ∅ : Sequent α) := ⟨GentzenWithCutProof.botL⟩
+lemma wkL (h : ⊢ᵍᶜ (Γ ⟹ Δ)) (h' : Γ ⊆ Γ') : ⊢ᵍᶜ (Γ' ⟹ Δ) := ⟨GentzenWithCutProof.wkL h.some h'⟩
+lemma wkR (h : ⊢ᵍᶜ (Γ ⟹ Δ)) (h' : Δ ⊆ Δ') : ⊢ᵍᶜ (Γ ⟹ Δ') := ⟨GentzenWithCutProof.wkR h.some h'⟩
+lemma impL (h₁ : ⊢ᵍᶜ (Γ ⟹ insert A Δ)) (h₂ : ⊢ᵍᶜ (insert B Γ ⟹ Δ)) : ⊢ᵍᶜ ((insert (A 🡒 B) Γ) ⟹ Δ) := ⟨GentzenWithCutProof.impL h₁.some h₂.some⟩
+lemma impR (h : ⊢ᵍᶜ ((insert A Γ) ⟹ (insert B Δ))) : ⊢ᵍᶜ (Γ ⟹ (insert (A 🡒 B) Δ)) := ⟨GentzenWithCutProof.impR h.some⟩
+lemma boxGL (h : ⊢ᵍᶜ ((insert (□A) (Γ ∪ Γ.box)) ⟹ {A})) : ⊢ᵍᶜ (Γ.box ⟹ {□A}) := ⟨GentzenWithCutProof.boxGL h.some⟩
+lemma cut (h₁ : ⊢ᵍᶜ (Γ₁ ⟹ insert A Δ₁)) (h₂ : ⊢ᵍᶜ (insert A Γ₂ ⟹ Δ₂)) : ⊢ᵍᶜ (Γ₁ ∪ Γ₂ ⟹ Δ₁ ∪ Δ₂) := ⟨GentzenWithCutProof.cut h₁.some h₂.some⟩
 
 lemma rec
-  {motive : (S : Sequent) → ⊢ᵍᶜ S → Prop}
-  (axm : ∀ A, motive ({A} ⟹ {A}) (GentzenWithCutProvable.axm A))
-  (botL : motive ({⊥} ⟹ ∅) GentzenWithCutProvable.botL)
+  {motive : (S : Sequent α) → ⊢ᵍᶜ S → Prop}
+  (axm : ∀ A : Formula α, motive ({A} ⟹ {A}) (GentzenWithCutProvable.axm A))
+  (botL : motive ({⊥} ⟹ ∅ : Sequent α) GentzenWithCutProvable.botL)
   (wkL : ∀ {Γ Γ' Δ} (h : ⊢ᵍᶜ (Γ ⟹ Δ)) (h' : Γ ⊆ Γ'), motive (Γ ⟹ Δ) h → motive (Γ' ⟹ Δ) (wkL h h'))
   (wkR : ∀ {Γ Δ Δ'} (h : ⊢ᵍᶜ (Γ ⟹ Δ)) (h' : Δ ⊆ Δ'), motive (Γ ⟹ Δ) h → motive (Γ ⟹ Δ') (wkR h h'))
   (impL : ∀ {Γ Δ A B} (h₁ : ⊢ᵍᶜ (Γ ⟹ insert A Δ)) (h₂ : ⊢ᵍᶜ (insert B Γ ⟹ Δ)),
@@ -63,7 +67,7 @@ lemma rec
     (motive (Γ₁ ⟹ insert A Δ₁) h₁) → (motive (insert A Γ₂ ⟹ Δ₂) h₂) →
     motive (Γ₁ ∪ Γ₂ ⟹ Δ₁ ∪ Δ₂) (GentzenWithCutProvable.cut h₁ h₂)
   )
-  : ∀ {S : Sequent} (h : ⊢ᵍᶜ S), motive S h := by
+  : ∀ {S : Sequent α} (h : ⊢ᵍᶜ S), motive S h := by
     rintro S ⟨h⟩;
     induction h with
     | axm A => apply axm;
@@ -80,8 +84,10 @@ end GentzenWithCutProvable
 
 namespace ProvableGentzen
 
+variable {S : Sequent α} {A B : Formula α}
+
 /-- Semantical cut-elimination -/
-theorem of_with_cut : ⊢ᵍᶜ S → ⊢ᵍ S := by
+theorem of_with_cut {S : Sequent α} : ⊢ᵍᶜ S → ⊢ᵍ S := by
   intro h;
   induction h using GentzenWithCutProvable.rec with
   | axm A => exact ProvableGentzen.axm A

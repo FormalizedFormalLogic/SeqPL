@@ -5,14 +5,18 @@ public import SeqPL.Hilbert.Basic
 @[expose]
 public section
 
-abbrev LogicGL : Set Formula := { A | ⊢ʰ A }
+variable {α : Type u}
 
-theorem LogicGL_TFAE {A} : [
-  A ∈ LogicGL,
+abbrev Logic (α) := Set (Formula α)
+
+abbrev LogicGL (α) : Logic α := { A | ⊢ʰ A }
+
+theorem LogicGL_TFAE [DecidableEq α] {A : Formula α} : [
+  A ∈ LogicGL α,
   ⊢ʰ A,
   ⊢ᵍ (∅ ⟹ {A}),
   ⊢ᵍᶜ (∅ ⟹ {A}),
-  ∀ {κ : Type 0}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ A
+  ∀ {κ : Type u}, [Nonempty κ] → ∀ M : Model κ α, [M.IsFiniteGL] → M ⊧ A
 ].TFAE
   := by
   tfae_have 1 ↔ 2 := by grind;

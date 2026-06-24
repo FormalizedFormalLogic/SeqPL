@@ -5,7 +5,10 @@ public import SeqPL.Gentzen.WithCut
 @[expose]
 public section
 
-inductive ProofHilbert : Formula → Type
+universe u
+variable {α : Type u}
+
+inductive ProofHilbert : Formula α → Type u
 | prop1  {A B}   : ProofHilbert $ A 🡒 B 🡒 A
 | prop2  {A B C} : ProofHilbert $ (A 🡒 B 🡒 C) 🡒 (A 🡒 B) 🡒 (A 🡒 C)
 | prop3  {A B}   : ProofHilbert $ (∼A 🡒 ∼B) 🡒 (B 🡒 A)
@@ -16,13 +19,13 @@ inductive ProofHilbert : Formula → Type
 | nec    {A}     : ProofHilbert A → ProofHilbert (□A)
 prefix:50 "⊢ʰ! " => ProofHilbert
 
-abbrev ProvableHilbert (A : Formula) := Nonempty (⊢ʰ! A)
+abbrev ProvableHilbert (A : Formula α) := Nonempty (⊢ʰ! A)
 prefix:50 "⊢ʰ " => ProvableHilbert
 
 
 namespace ProvableHilbert
 
-variable {A B C : Formula}
+variable {A B C : Formula α}
 
 @[grind <=] lemma nec : ⊢ʰ A → ⊢ʰ □A := λ ⟨h⟩ => ⟨ProofHilbert.nec h⟩
 @[grind =>] lemma mdp : ⊢ʰ (A 🡒 B) → ⊢ʰ A → ⊢ʰ B := λ ⟨h₁⟩ ⟨h₂⟩ => ⟨ProofHilbert.mdp h₁ h₂⟩
@@ -39,7 +42,7 @@ lemma impId : ⊢ʰ A 🡒 A := mdp (mdp (prop2 (B := A 🡒 A)) prop1) prop1
 
 @[induction_eliminator]
 lemma rec
-  {motive : (A : Formula) → ⊢ʰ A → Prop}
+  {motive : (A : Formula α) → ⊢ʰ A → Prop}
   (prop1  : ∀ {A B} (h : ⊢ʰ A 🡒 B 🡒 A), motive _ h)
   (prop2  : ∀ {A B C} (h : ⊢ʰ (A 🡒 B 🡒 C) 🡒 (A 🡒 B) 🡒 (A 🡒 C)), motive _ h)
   (prop3  : ∀ {A B} (h : ⊢ʰ (∼A 🡒 ∼B) 🡒 (B 🡒 A)), motive _ h)
@@ -55,18 +58,18 @@ lemma rec
 end ProvableHilbert
 
 
-inductive DeductionHilbert : Set Formula → Formula → Type _
+inductive DeductionHilbert : FormulaSet α → Formula α → Type _
 | ofProof {X A} : ⊢ʰ! A → DeductionHilbert X A
 | ofContext {X A} : A ∈ X → DeductionHilbert X A
 | mdp {X A B} : (DeductionHilbert X (A 🡒 B)) → (DeductionHilbert X A) → (DeductionHilbert X B)
 infix:50 " ⊢ʰ! " => DeductionHilbert
 
-abbrev DeducibleHilbert (X : Set Formula) (A : Formula) := Nonempty (X ⊢ʰ! A)
+abbrev DeducibleHilbert (X : FormulaSet α) (A : Formula α) := Nonempty (X ⊢ʰ! A)
 infix:50 " ⊢ʰ " => DeducibleHilbert
 
 namespace DeducibleHilbert
 
-variable {X Y : Set Formula} {A B : Formula}
+variable {X Y : FormulaSet α} {A B : Formula α}
 
 @[grind <=] lemma ofProvable : (⊢ʰ A) → (X ⊢ʰ A) := λ ⟨h⟩ => ⟨.ofProof h⟩
 @[grind <=] lemma ofContext : A ∈ X → (X ⊢ʰ A) := λ h => ⟨.ofContext h⟩
@@ -74,7 +77,7 @@ variable {X Y : Set Formula} {A B : Formula}
 
 @[induction_eliminator]
 protected lemma rec
-  {motive : (X : Set (Formula)) → (A : Formula) → (X ⊢ʰ A) → Prop}
+  {motive : (X : FormulaSet α) → (A : Formula α) → (X ⊢ʰ A) → Prop}
   (ofProvable : ∀ {X A}, (h : ⊢ʰ A) → motive X A (ofProvable h))
   (ofContext : ∀ {X A}, (h : A ∈ X) → motive X A (ofContext h))
   (mdp : ∀ {X A B}, (hAB : X ⊢ʰ A 🡒 B) → (hA : X ⊢ʰ A) → (motive X (A 🡒 B) hAB) → (motive X A hA) → (motive X B (mdp hAB hA)))
@@ -116,12 +119,12 @@ theorem deduction_theorem : (insert A X ⊢ʰ B) ↔ (X ⊢ʰ A 🡒 B) := ⟨dr
 lemma iff_empty_ctx : (∅ ⊢ʰ A) ↔ (⊢ʰ A) := by
   constructor
   . intro h;
-    generalize e : (∅ : Set Formula) = X at h;
+    generalize e : (∅ : FormulaSet α) = X at h;
     induction h <;> grind;
   . apply ofProvable;
 
 lemma iff_singleton_deducible_provable : ({A} ⊢ʰ B) ↔ (⊢ʰ A 🡒 B) := by
-  rw [show ({A} : Set Formula) = insert A ∅ by simp];
+  rw [show ({A} : FormulaSet α) = insert A ∅ by simp];
   apply Iff.trans deduction_theorem iff_empty_ctx;
 
 end DeducibleHilbert
@@ -131,7 +134,7 @@ end DeducibleHilbert
 
 namespace ProvableGentzen
 
-theorem of_provableHilbert : ⊢ʰ A → ⊢ᵍ (∅ ⟹ {A}) := by
+theorem of_provableHilbert [DecidableEq α] : ⊢ʰ A → ⊢ᵍ (∅ ⟹ {A} : Sequent α) := by
   intro h;
   induction h with
   | prop1 => exact .axiomŁ1;
@@ -148,9 +151,9 @@ end ProvableGentzen
 
 namespace ProvableHilbert
 
-variable {A B C G : Formula}
+variable {A B C G : Formula α}
 
-@[simp, grind .] lemma top : ⊢ʰ ⊤ := by simp [Formula.top];
+@[simp, grind .] lemma top : ⊢ʰ (⊤ : Formula α) := by simp [Formula.top];
 
 lemma impTrans : ⊢ʰ A 🡒 B → ⊢ʰ B 🡒 C → ⊢ʰ A 🡒 C := by
   intro h₁ h₂;
@@ -159,7 +162,7 @@ lemma impTrans : ⊢ʰ A 🡒 B → ⊢ʰ B 🡒 C → ⊢ʰ A 🡒 C := by
   exact DeducibleHilbert.iff_singleton_deducible_provable.mp $ DeducibleHilbert.mdp h₂ h₁;
 
 @[simp, grind .] lemma efq : ⊢ʰ ⊥ 🡒 A := mdp prop3 (af top)
-@[grind <=] lemma efqRule : ⊢ʰ ⊥ → ⊢ʰ A := mdp efq
+@[grind <=] lemma efqRule : ⊢ʰ (⊥ : Formula α) → ⊢ʰ A := mdp efq
 
 @[simp, grind .]
 lemma andL : ⊢ʰ (A ⋏ B) 🡒 A := by
@@ -234,7 +237,7 @@ lemma ctxAndIntro : ⊢ʰ (G 🡒 A) 🡒 (G 🡒 B) 🡒 (G 🡒 (A ⋏ B)) := 
 lemma ctxAndIntroRule : ⊢ʰ (G 🡒 A) → ⊢ʰ (G 🡒 B) → ⊢ʰ (G 🡒 (A ⋏ B)) := mdp₂ ctxAndIntro
 
 
-lemma imp_lconj_of_mem {Γ : FormulaList} (h : A ∈ Γ) : ⊢ʰ ⋀Γ 🡒 A := by
+lemma imp_lconj_of_mem {Γ : FormulaList α} (h : A ∈ Γ) : ⊢ʰ ⋀Γ 🡒 A := by
   match Γ with
   | [] | [B] => simp_all;
   | B :: C :: Γ =>
@@ -245,7 +248,7 @@ lemma imp_lconj_of_mem {Γ : FormulaList} (h : A ∈ Γ) : ⊢ʰ ⋀Γ 🡒 A :=
     . exact impTrans andR $ imp_lconj_of_mem (Γ := C :: Γ) (by grind);
 
 
-lemma imp_lconj_lconj_of_subset {Γ Γ' : FormulaList} (h : Γ' ⊆ Γ) : ⊢ʰ ⋀Γ 🡒 ⋀Γ' := by
+lemma imp_lconj_lconj_of_subset {Γ Γ' : FormulaList α} (h : Γ' ⊆ Γ) : ⊢ʰ ⋀Γ 🡒 ⋀Γ' := by
   match Γ' with
   | [] => apply af; simp;
   | [B] => apply imp_lconj_of_mem; grind;
@@ -255,13 +258,13 @@ lemma imp_lconj_lconj_of_subset {Γ Γ' : FormulaList} (h : Γ' ⊆ Γ) : ⊢ʰ 
     exact ctxAndIntroRule h₁ h₂;
 
 @[grind <=]
-lemma imp_fconj_fconj_of_subset {Γ Γ' : FormulaFinset} (h : Γ' ⊆ Γ) : ⊢ʰ ⋀Γ 🡒 ⋀Γ' := by
+lemma imp_fconj_fconj_of_subset {Γ Γ' : FormulaFinset α} (h : Γ' ⊆ Γ) : ⊢ʰ ⋀Γ 🡒 ⋀Γ' := by
   apply imp_lconj_lconj_of_subset;
   intro A;
   simpa using @h A;
 
 
-lemma imp_ldisj_of_mem {Γ : FormulaList} {A : Formula} (h : A ∈ Γ) : ⊢ʰ A 🡒 ⋁Γ := by
+lemma imp_ldisj_of_mem {Γ : FormulaList α} {A : Formula α} (h : A ∈ Γ) : ⊢ʰ A 🡒 ⋁Γ := by
   match Γ with
   | [] | [B] => simp_all;
   | B :: C :: Γ =>
@@ -272,7 +275,7 @@ lemma imp_ldisj_of_mem {Γ : FormulaList} {A : Formula} (h : A ∈ Γ) : ⊢ʰ A
     . exact impTrans (imp_ldisj_of_mem (Γ := C :: Γ) (by grind)) orR;
 
 @[grind <=]
-lemma imp_ldisj_ldisj_of_subset {Γ Γ' : FormulaList} (h : Γ ⊆ Γ') : ⊢ʰ ⋁Γ 🡒 ⋁Γ' := by
+lemma imp_ldisj_ldisj_of_subset {Γ Γ' : FormulaList α} (h : Γ ⊆ Γ') : ⊢ʰ ⋁Γ 🡒 ⋁Γ' := by
   match Γ with
   | [] => simp;
   | [B] => apply imp_ldisj_of_mem; grind;
@@ -282,12 +285,12 @@ lemma imp_ldisj_ldisj_of_subset {Γ Γ' : FormulaList} (h : Γ ⊆ Γ') : ⊢ʰ 
     sorry;
 
 @[grind <=]
-lemma imp_fdisj_fdisj_of_subset {Γ Γ' : FormulaFinset} (h : Γ ⊆ Γ') : ⊢ʰ ⋁Γ 🡒 ⋁Γ' := by
+lemma imp_fdisj_fdisj_of_subset {Γ Γ' : FormulaFinset α} (h : Γ ⊆ Γ') : ⊢ʰ ⋁Γ 🡒 ⋁Γ' := by
   apply imp_ldisj_ldisj_of_subset;
   intro A;
   simpa using @h A;
 
-theorem of_provableGentzen : ⊢ᵍ S → ⊢ʰ (⋀S.ant) 🡒 (⋁S.suc) := by
+theorem of_provableGentzen [DecidableEq α] {S : Sequent α} : ⊢ᵍ S → ⊢ʰ (⋀S.ant) 🡒 (⋁S.suc) := by
   intro h;
   induction h with
   | axm A => simp;
@@ -306,24 +309,24 @@ theorem of_provableGentzen : ⊢ᵍ S → ⊢ʰ (⋀S.ant) 🡒 (⋁S.suc) := by
     simp_all;
     sorry;
 
-theorem of_provableGentzen_singleton : ⊢ᵍ (∅ ⟹ {A}) → ⊢ʰ A := by
+theorem of_provableGentzen_singleton [DecidableEq α] : ⊢ᵍ (∅ ⟹ {A}) → ⊢ʰ A := by
   intro h;
   simpa using mdp (of_provableGentzen h) (by simp);
 
 
 namespace Kripke
 
-theorem soundness (h : ⊢ʰ A) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ, [M.IsGL] → M ⊧ A := by
+theorem soundness [DecidableEq α] (h : ⊢ʰ A) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ α, [M.IsGL] → M ⊧ A := by
   intro κ _ M _ x;
   have := ProvableGentzen.of_provableHilbert h;
   have := ProvableGentzen.Kripke.soundness this M x;
   exact x.forces_singleton_sequent.mp this;
 
-theorem finite_soundness (h : ⊢ʰ A) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ A := by
+theorem finite_soundness [DecidableEq α] (h : ⊢ʰ A) : ∀ {κ}, [Nonempty κ] → ∀ M : Model κ α, [M.IsFiniteGL] → M ⊧ A := by
   intro κ _ _ _;
   apply soundness h;
 
-theorem completeness (h : ∀ {κ : Type 0}, [Nonempty κ] → ∀ M : Model κ, [M.IsFiniteGL] → M ⊧ A): ⊢ʰ A := by
+theorem completeness [DecidableEq α] (h : ∀ {κ : Type u}, [Nonempty κ] → ∀ M : Model κ α, [M.IsFiniteGL] → M ⊧ A): ⊢ʰ A := by
   apply of_provableGentzen_singleton;
   apply ProvableGentzen.Kripke.completeness;
   intro κ _ M _ x;
