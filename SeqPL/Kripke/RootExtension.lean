@@ -18,9 +18,9 @@ variable [Nonempty κ] {M : Model κ α} {n : ℕ+} {A B : Formula α} {Γ Γ' �
 
 namespace Model
 
-abbrev root (M : Model κ α) := { r : M.World // ∀ x, x ≠ r → r ≺ x }
+abbrev Root (M : Model κ α) := { r : M.World // ∀ x, x ≠ r → r ≺ x }
 
-abbrev extendRoot (M : Model κ α) (n : ℕ+) (r : M.root) : Model (κ ⊕ Fin n) α where
+abbrev extendRoot (M : Model κ α) (n : ℕ+) (r : M.Root) : Model (κ ⊕ Fin n) α where
   Rel' x y :=
     match x, y with
     | .inl x, .inl y => M.Rel x y
@@ -34,15 +34,15 @@ abbrev extendRoot (M : Model κ α) (n : ℕ+) (r : M.root) : Model (κ ⊕ Fin 
 
 namespace extendRoot
 
-variable {r : M.root}
+variable {r : M.Root}
 
-protected abbrev root (M : Model κ α) (n : ℕ+) (r : M.root) : (M.extendRoot n r).root := ⟨.inr (Fin.posLast n), by
+protected abbrev root (M : Model κ α) (n : ℕ+) (r : M.Root) : (M.extendRoot n r).Root := ⟨.inr (Fin.posLast n), by
   intro x hx;
   match x with
   | .inl x => simp_all [extendRoot, Model.Rel]
   | .inr i => simp_all [Model.Rel, Fin.posLast]; sorry;
 ⟩
-instance : Nonempty (M.extendRoot n r).root := ⟨extendRoot.root M n r⟩
+instance : Nonempty (M.extendRoot n r).Root := ⟨extendRoot.root M n r⟩
 
 instance [IsTrans _ M.Rel] : IsTrans _ (M.extendRoot n r).Rel := by
   constructor;
@@ -64,7 +64,7 @@ instance [Std.Irrefl M.Rel] : Std.Irrefl (M.extendRoot n r).Rel := by
   | .inl x => simp_all only [Model.Rel]; apply Std.Irrefl.irrefl
   | .inr i => simp [Model.Rel];
 
-protected abbrev chain (M : Model κ α) (n : ℕ+) (r : M.root) : List (M.extendRoot n r).World := List.finRange n |>.reverse.map (.inr ·)
+protected abbrev chain (M : Model κ α) (n : ℕ+) (r : M.Root) : List (M.extendRoot n r).World := List.finRange n |>.reverse.map (.inr ·)
 
 @[simp]
 lemma chain_length : (extendRoot.chain M n r).length = n := by simp

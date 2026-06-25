@@ -1,6 +1,7 @@
 module
 
 public import SeqPL.Gentzen.Basic
+public import SeqPL.Vorspiel.CWF
 
 @[expose]
 public section
@@ -14,23 +15,78 @@ namespace Model
 variable [Nonempty κ] {M : Model κ α}
 
 abbrev World (_ : Model κ α) := κ
+
+abbrev worlds : Set M.World := Set.univ
+@[simp] lemma worlds_nonempty : Set.Nonempty M.worlds := by simp;
+
+
 abbrev Rel {M : Model κ α} : M.World → M.World → Prop := M.Rel'
 infixl:60 " ≺ " => Rel
 
+@[grind]
+def RelItr : ℕ → (M.World → M.World → Prop)
+  |     0 => (· = ·)
+  | n + 1 => fun x y ↦ ∃ z, x ≺ z ∧ RelItr n z y
+notation x:45 " ≺^[" n:0 "] " y:46 => RelItr n x y
+
+section
+
+variable {x y : M.World} {n : ℕ}
+
+@[simp, grind .]
+lemma relItr_zero : x ≺^[0] x := by rfl;
+
+@[simp, grind =]
+lemma relItr_zero_eq : x ≺^[0] y ↔ x = y := by rfl;
+
+@[simp, grind =]
+lemma relItr_one : x ≺^[1] y ↔ x ≺ y := by simp [RelItr];
+
+@[simp, grind =>]
+lemma relItr_succ : x ≺^[n + 1] y ↔ ∃ z, x ≺ z ∧ z ≺^[n] y := iff_of_eq rfl
+
+@[simp, grind =>]
+lemma relItr_succ' : x ≺^[n + 1] y ↔ ∃ z, x ≺^[n] z ∧ z ≺ y := by
+  induction n generalizing x y <;> grind;
+
+lemma relItr_comp : x ≺^[n] y → y ≺^[m] z → x ≺^[n + m] z := by
+  induction n generalizing x y <;> grind;
+
+@[grind =>]
+lemma relItr_unwrap_trans [IsTrans _ M.Rel] {n : ℕ+} : x ≺^[n] y → x ≺ y := by
+  induction n generalizing x y with
+  | one => simp;
+  | succ n ih =>
+    rintro ⟨z, Rxz, Rzy⟩;
+    trans z;
+    . exact Rxz;
+    . exact ih Rzy;
+
+end
+
 abbrev Val {M : Model κ α} : M.World → α → Prop := M.Val'
 
-abbrev _root_.IsConverseWellFounded (α) (R : α → α → Prop) := IsWellFounded α (λ x y => R y x)
-
-lemma has_terminal [IsConverseWellFounded _ M.Rel] : ∀ (X : Set M.World), Set.Nonempty X → ∃ t ∈ X, ∀ x ∈ X, ¬(t ≺ x) :=
-  WellFounded.wellFounded_iff_has_min.mp (by apply IsWellFounded.wf)
 
 class IsGL (M : Model κ α) extends IsTrans _ M.Rel, IsConverseWellFounded _ M.Rel
 
 class IsFiniteGL (M : Model κ α) extends IsTrans _ M.Rel, Std.Irrefl M.Rel where
   finite : Finite M.World
+instance [M.IsFiniteGL] : Finite M.World := IsFiniteGL.finite
 
 instance [M.IsFiniteGL] : M.IsGL where
-  wf := by apply @Finite.wellFounded_of_trans_of_irrefl M.World (IsFiniteGL.finite);
+  cwf := Finite.converseWellFounded_of_trans_of_irrefl (r := M.Rel);
+
+
+abbrev TerminalOf (X : Set M.World) := { t // t ∈ X ∧ ∀ x ∈ X, ¬(t ≺ x) }
+
+noncomputable def terminalOf [IsConverseWellFounded _ M.Rel] (X : Set M.World) (hX : Set.Nonempty X) : M.TerminalOf X :=
+  haveI t := (ConverseWellFounded.iff_has_max (r := M.Rel) |>.mp IsConverseWellFounded.cwf) X hX;
+  ⟨t.choose, t.choose_spec⟩
+
+abbrev Terminal := M.TerminalOf Set.univ
+
+noncomputable def terminal [IsConverseWellFounded _ M.Rel] : M.Terminal := M.terminalOf M.worlds (by simp)
+
 
 end Model
 

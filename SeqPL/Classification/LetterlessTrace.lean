@@ -177,8 +177,8 @@ lemma letterlessSpectrum_finite_or_cofinite : A.letterlessSpectrum.Finite ∨ A.
 lemma letterlessTrace_finite_or_cofinite : A.letterlessTrace.Finite ∨ A.letterlessTrace.Cofinite := by
   grind [letterlessTrace, letterlessSpectrum_finite_or_cofinite];
 
-
-
 end Formula
+
+
 
 end
