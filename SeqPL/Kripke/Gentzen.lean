@@ -96,8 +96,8 @@ lemma validate_gentzen_boxGL [DecidableEq α] [M.IsGL] (h : M ⊧ ((insert (□A
   simp only [Finset.mem_insert, Finset.mem_union, Finset.mem_image, forall_eq_or_imp];
   refine ⟨?_, ?_⟩;
   . by_contra hC;
-    obtain ⟨z, Ryz, hz⟩ := iff_not_forced_box.mp hC;
-    obtain ⟨t, ⟨Ryt, hntA⟩, ht₂⟩ := M.has_terminal ({z | y ≺ z ∧ ¬z ⊩ A}) ⟨z, ⟨Ryz, hz⟩⟩;
+    obtain ⟨z, Ryz, hz⟩ := Model.World.not_forces_box.mp hC;
+    let ⟨t, ⟨Ryt, hntA⟩, ht₂⟩ := M.terminalOf ({z | y ≺ z ∧ z ⊮ A}) ⟨z, ⟨Ryz, hz⟩⟩;
     apply hntA;
     apply forces_ctx_singleton_sequent.mp $ h t;
     simp;
@@ -352,7 +352,7 @@ lemma truthlemma :
         -/
       ) this;
       have hT := ExpandedSequent.subset_lindenbaum BS (by sorry) this;
-      apply S.iff_not_forced_box.mpr;
+      apply S.not_forces_box.mpr;
       use T;
       refine ⟨⟨⟨?_, ?_⟩, ?_⟩, ?_⟩
       . intro B hB;

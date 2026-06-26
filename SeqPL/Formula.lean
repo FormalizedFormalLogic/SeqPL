@@ -32,6 +32,9 @@ infixl:83 " ⋎ " => or
 abbrev and (A B : Formula α) : Formula α := ∼(A 🡒 ∼B)
 infixl:84 " ⋏ " => and
 
+abbrev iff (A B : Formula α) : Formula α := (A 🡒 B) ⋏ (B 🡒 A)
+infix:85 " 🡘 " => iff
+
 abbrev top : Formula α := ∼⊥
 notation:max "⊤" => top
 
@@ -63,7 +66,7 @@ lemma diaItr_comp {n m : ℕ} : (◇^[n + m]A) = ◇^[n](◇^[m]A) := by
   induction n generalizing A <;> grind;
 
 abbrev boxdot (A : Formula α) : Formula α := A ⋏ □A
-prefix:70 "⊡" => boxdot
+prefix:95 "⊡" => boxdot
 
 @[grind]
 def IsBox : Formula α → Prop

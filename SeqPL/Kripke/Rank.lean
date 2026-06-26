@@ -50,6 +50,18 @@ lemma iff_rank_eq : x.rank = n ↔ (∃ y, x ≺^[n] y) ∧ (∀ y, x ≺^[n] y 
   _ ↔ (∀ l y, x ≺^[n] y → ¬y ≺ l) ∧ (∃ y, x ≺^[n] y)    := by simp only [Model.relItr_succ']; grind;
   _ ↔ (∃ y, x ≺^[n] y) ∧ (∀ y, x ≺^[n] y → ∀ z, ¬y ≺ z) := by grind;
 
+lemma iff_rank_eq_zero : x.rank = 0 ↔ ∀ y, ¬x ≺ y := by
+  apply Iff.trans $ iff_rank_eq;
+  constructor;
+  . grind;
+  . rintro h;
+    constructor;
+    . use x;
+      grind;
+    . grind;
+
+
+
 lemma of_lt_rank (hn : n < x.rank) : ∃ y : M.World, x ≺ y ∧ y.rank = n := cwfHeight_lt hn
 
 lemma exists_rank_terminal (x : M.World) : ∃ y, x ≺^[x.rank] y := iff_le_rank.mp (by simp)
