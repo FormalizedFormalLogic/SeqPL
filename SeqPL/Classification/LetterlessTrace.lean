@@ -49,106 +49,106 @@ lemma cofinite_union_right (ht : t.Cofinite) : (s ∪ t).Cofinite := by
 end Set
 
 
-namespace Formula
+abbrev LetterlessFormula := Formula Empty
 
+namespace LetterlessFormula
 
 @[grind]
-def letterlessSpectrum (A : Formula Empty) : Set ℕ :=
-  match A with
+def spectrum (A : LetterlessFormula) : Set ℕ := match A with
   | ⊥ => ∅
-  | A 🡒 B => (A.letterlessSpectrum)ᶜ ∪ B.letterlessSpectrum
-  | □A => { n | ∀ i < n, i ∈ A.letterlessSpectrum }
+  | A 🡒 B => (spectrum A)ᶜ ∪ spectrum B
+  | □A => { n | ∀ i < n, i ∈ spectrum A }
 
-variable {A B : Formula Empty}
+variable {A B : LetterlessFormula}
 
-lemma letterlessSpectrum_bot : (⊥ : Formula Empty).letterlessSpectrum = ∅ := by grind;
-lemma letterlessSpectrum_top : (⊤ : Formula Empty).letterlessSpectrum = Set.univ := by grind;
-lemma letterlessSpectrum_imp : (A 🡒 B).letterlessSpectrum = A.letterlessSpectrumᶜ ∪ B.letterlessSpectrum := by simp [letterlessSpectrum]
-lemma letterlessSpectrum_neg : (∼A).letterlessSpectrum = A.letterlessSpectrumᶜ := by simp [letterlessSpectrum]
-lemma letterlessSpectrum_or  : (A ⋎ B).letterlessSpectrum = A.letterlessSpectrum ∪ B.letterlessSpectrum := by simp [letterlessSpectrum];
-lemma letterlessSpectrum_and : (A ⋏ B).letterlessSpectrum = A.letterlessSpectrum ∩ B.letterlessSpectrum := by simp [letterlessSpectrum];
-lemma letterlessSpectrum_box : (□A).letterlessSpectrum = { n | ∀ i < n, i ∈ A.letterlessSpectrum } := by simp [letterlessSpectrum];
+lemma spectrum_bot : spectrum (⊥ : LetterlessFormula) = ∅ := by grind;
+lemma spectrum_top : spectrum (⊤ : LetterlessFormula) = Set.univ := by grind;
+lemma spectrum_imp : spectrum (A 🡒 B) = (spectrum A)ᶜ ∪ spectrum B := by simp [spectrum]
+lemma spectrum_neg : spectrum (∼A) = (spectrum A)ᶜ := by simp [spectrum]
+lemma spectrum_or  : spectrum (A ⋎ B) = spectrum A ∪ spectrum B := by simp [spectrum];
+lemma spectrum_and : spectrum (A ⋏ B) = spectrum A ∩ spectrum B := by simp [spectrum];
+lemma spectrum_box : spectrum (□A) = { n | ∀ i < n, i ∈ A.spectrum } := by simp [spectrum];
 
 attribute [simp, grind .]
-  letterlessSpectrum_bot
-  letterlessSpectrum_top
+  spectrum_bot
+  spectrum_top
 attribute [grind =]
-  letterlessSpectrum_imp
-  letterlessSpectrum_neg
-  letterlessSpectrum_or
-  letterlessSpectrum_and
-  letterlessSpectrum_box
+  spectrum_imp
+  spectrum_neg
+  spectrum_or
+  spectrum_and
+  spectrum_box
 
 @[simp, grind =]
-lemma letterlessSpectrum_boxItr {n : ℕ} : (□^[(n + 1)]A).letterlessSpectrum = { k | ∀ i < k, i ∈ (□^[n]A).letterlessSpectrum } := by
+lemma spectrum_boxItr {n : ℕ} : spectrum (□^[(n + 1)]A) = { k | ∀ i < k, i ∈ spectrum (□^[n]A) } := by
   induction n <;> grind;
 
 @[grind =]
-lemma letterlessSpectrum_boxdot : (⊡A).letterlessSpectrum = { n | ∀ i ≤ n, i ∈ A.letterlessSpectrum } := by grind;
+lemma spectrum_boxdot : spectrum (⊡A) = { n | ∀ i ≤ n, i ∈ spectrum A } := by grind;
 
 @[simp, grind =]
-lemma letterlessSpectrum_boxItr_bot : letterlessSpectrum (□^[n]⊥) = { i | i < n } := by
+lemma spectrum_boxItr_bot : spectrum (□^[n]⊥) = { i | i < n } := by
   induction n with
   | zero => grind;
   | succ n ih =>
     calc
-      _ = { i | ∀ k < i, k ∈ letterlessSpectrum (□^[n]⊥) } := by grind
+      _ = { i | ∀ k < i, k ∈ spectrum (□^[n]⊥) } := by grind
       _ = { i | ∀ k < i, k < n }                           := by simp [ih];
       _ = { i | i < n + 1 }                                := by grind;
 
 @[simp, grind =]
-lemma letterlessSpectrum_lconj {Γ : FormulaList Empty} : (⋀Γ).letterlessSpectrum = ⋂ A ∈ Γ, A.letterlessSpectrum := by
+lemma spectrum_lconj {Γ : FormulaList Empty} : spectrum (⋀Γ) = ⋂ A ∈ Γ, spectrum A := by
   match Γ with
-  | [] | [A] | A :: B :: Γ => simp [FormulaList.conj, letterlessSpectrum_and, letterlessSpectrum_lconj]
+  | [] | [A] | A :: B :: Γ => simp [FormulaList.conj, spectrum_and, spectrum_lconj]
 
 @[simp, grind =]
-lemma letterlessSpectrum_fconj {Γ : FormulaFinset Empty} : (⋀Γ).letterlessSpectrum = ⋂ A ∈ Γ, A.letterlessSpectrum := by
-  simp [FormulaFinset.conj, letterlessSpectrum_lconj];
+lemma spectrum_fconj {Γ : FormulaFinset Empty} : spectrum (⋀Γ) = ⋂ A ∈ Γ, spectrum A := by
+  simp [FormulaFinset.conj, spectrum_lconj];
 
 @[simp, grind =]
-lemma letterlessSpectrum_TBB : (TBB n).letterlessSpectrum = {n}ᶜ := by
-  rw [TBB, letterlessSpectrum_imp, letterlessSpectrum_boxItr_bot, letterlessSpectrum_boxItr_bot];
+lemma spectrum_TBB : spectrum (TBB n) = {n}ᶜ := by
+  rw [TBB, spectrum_imp, spectrum_boxItr_bot, spectrum_boxItr_bot];
   ext i;
   grind;
 
 @[grind]
-def letterlessTrace (A : Formula Empty) := (A.letterlessSpectrum)ᶜ
+def trace (A : Formula Empty) := (spectrum A)ᶜ
 
-lemma letterlessTrace_bot : (⊥ : Formula Empty).letterlessTrace = Set.univ := by grind;
-lemma letterlessTrace_top : (⊤ : Formula Empty).letterlessTrace = ∅ := by grind;
-lemma letterlessTrace_and : (A ⋏ B).letterlessTrace = A.letterlessTrace ∪ B.letterlessTrace := by grind;
-lemma letterlessTrace_or  : (A ⋎ B).letterlessTrace = A.letterlessTrace ∩ B.letterlessTrace := by grind;
-lemma letterlessTrace_imp : (A 🡒 B).letterlessTrace = A.letterlessTraceᶜ ∩ B.letterlessTrace := by grind;
-lemma letterlessTrace_neg : (∼A).letterlessTrace = A.letterlessTraceᶜ := by grind;
+lemma trace_bot : trace ⊥ = Set.univ := by grind;
+lemma trace_top : trace ⊤ = ∅ := by grind;
+lemma trace_and : trace (A ⋏ B) = trace A ∪ trace B := by grind;
+lemma trace_or  : trace (A ⋎ B) = trace A ∩ trace B := by grind;
+lemma trace_imp : trace (A 🡒 B) = (trace A)ᶜ ∩ trace B := by grind;
+lemma trace_neg : trace (∼A) = (trace A)ᶜ := by grind;
 
 attribute [simp, grind .]
-  letterlessTrace_bot
-  letterlessTrace_top
+  trace_bot
+  trace_top
 attribute [grind =]
-  letterlessTrace_and
-  letterlessTrace_or
-  letterlessTrace_imp
-  letterlessTrace_neg
+  trace_and
+  trace_or
+  trace_imp
+  trace_neg
 
 @[simp, grind =]
-lemma letterlessTrace_TBB : (TBB n).letterlessTrace = {n} := by grind;
+lemma trace_TBB : trace (TBB n) = {n} := by grind;
 
 @[grind .]
-lemma letterlessSpectrum_finite_or_cofinite : A.letterlessSpectrum.Finite ∨ A.letterlessSpectrum.Cofinite := by
+lemma spectrum_finite_or_cofinite : A.spectrum.Finite ∨ A.spectrum.Cofinite := by
   induction A with
   | atom a => grind;
   | bot => grind;
   | imp A B ihA ihB =>
-    simp only [letterlessSpectrum_imp, Set.finite_union];
+    simp only [spectrum_imp, Set.finite_union];
     rcases ihA with (hA | hA) <;> rcases ihB with (hB | hB) <;> grind;
   | box A ih =>
-    by_cases h : A.letterlessSpectrum = Set.univ;
+    by_cases h : spectrum A = Set.univ;
     . grind;
     . left;
-      obtain ⟨k, hk₁, hk₂⟩ := exists_minimal_of_wellFoundedLT (λ k => k ∉ A.letterlessSpectrum) $ Set.ne_univ_iff_exists_notMem _ |>.mp h;
-      have : {n | ∀ i < n, i ∈ A.letterlessSpectrum} = { n | n ≤ k} := by
+      obtain ⟨k, hk₁, hk₂⟩ := exists_minimal_of_wellFoundedLT (λ k => k ∉ spectrum A) $ Set.ne_univ_iff_exists_notMem _ |>.mp h;
+      have : {n | ∀ i < n, i ∈ spectrum A} = { n | n ≤ k} := by
         ext i;
-        suffices (∀ j < i, j ∈ A.letterlessSpectrum) ↔ i ≤ k by simpa [Set.mem_setOf_eq];
+        suffices (∀ j < i, j ∈ spectrum A) ↔ i ≤ k by simpa [Set.mem_setOf_eq];
         constructor;
         . intro h;
           contrapose! hk₁;
@@ -159,14 +159,17 @@ lemma letterlessSpectrum_finite_or_cofinite : A.letterlessSpectrum.Finite ∨ A.
           constructor;
           . assumption;
           . omega;
-      rw [letterlessSpectrum_box, this];
+      rw [spectrum_box, this];
       apply Set.finite_le_nat;
 
 @[grind .]
-lemma letterlessTrace_finite_or_cofinite : A.letterlessTrace.Finite ∨ A.letterlessTrace.Cofinite := by
-  grind [letterlessTrace, letterlessSpectrum_finite_or_cofinite];
+lemma trace_finite_or_cofinite : (trace A).Finite ∨ (trace A).Cofinite := by
+  grind [trace, spectrum_finite_or_cofinite];
 
-end Formula
+end LetterlessFormula
+
+
+open LetterlessFormula (spectrum trace)
 
 
 namespace Model
@@ -174,24 +177,24 @@ namespace Model
 variable
   [Nonempty κ]
   {M : Model κ Empty} [Fintype M.World] [M.IsGL]
-  {x : M.World} {A : Formula Empty}
+  {x : M.World} {A : LetterlessFormula}
 
-lemma iff_forces_rank_mem_letterlessSpectrum : x ⊩ A ↔ x.rank ∈ A.letterlessSpectrum := by
+lemma iff_forces_rank_mem_spectrum : x ⊩ A ↔ x.rank ∈ (spectrum A) := by
   induction A generalizing x with
   | box A ih =>
     calc
       _ ↔ ∀ y, x ≺ y → y ⊩ A := by grind;
-      _ ↔ ∀ y, x ≺ y → y.rank ∈ A.letterlessSpectrum := by simp [ih];
-      _ ↔ ∀ i < x.rank, i ∈ A.letterlessSpectrum := by
+      _ ↔ ∀ y, x ≺ y → y.rank ∈ (LetterlessFormula.spectrum A) := by simp [ih];
+      _ ↔ ∀ i < x.rank, i ∈ (spectrum A) := by
         constructor;
         . intro h i hi;
           grind [of_lt_rank hi];
         . grind [rank_lt_of_rel];
-      _ ↔ x.rank ∈ (□A).letterlessSpectrum := by grind;
+      _ ↔ x.rank ∈ spectrum (□A) := by grind;
   | _ => grind;
 
-lemma iff_not_forces_rank_mem_trace : x ⊮ A ↔ x.rank ∈ A.letterlessTrace := by
-  grind [iff_forces_rank_mem_letterlessSpectrum];
+lemma iff_not_forces_rank_mem_trace : x ⊮ A ↔ x.rank ∈ (trace A) := by
+  grind [iff_forces_rank_mem_spectrum];
 
 end Model
 
@@ -238,15 +241,15 @@ end finiteLineModel
 
 section
 
-variable {A B : Formula Empty}
+variable {A B : LetterlessFormula}
 
-lemma letterlessSpectrum_TFAE : [
-  n ∈ A.letterlessSpectrum,
+lemma spectrum_TFAE : [
+  n ∈ spectrum A,
   ∀ {κ : Type 0}, [Nonempty κ] → [Fintype κ] → ∀ M : Model κ Empty, [M.IsGL] → ∀ x : M.World, x.rank = n → x ⊩ A,
   ∃ κ : Type 0, ∃ _ : Nonempty κ, ∃ _ : Fintype κ, ∃ M : Model κ Empty, ∃ _ : M.IsGL, ∃ x : M.World, x.rank = n ∧ x ⊩ A,
 ].TFAE := by
-  tfae_have 1 → 2 := by grind [Model.iff_forces_rank_mem_letterlessSpectrum];
-  tfae_have 3 → 1 := by grind [Model.iff_forces_rank_mem_letterlessSpectrum];
+  tfae_have 1 → 2 := by grind [Model.iff_forces_rank_mem_spectrum];
+  tfae_have 3 → 1 := by grind [Model.iff_forces_rank_mem_spectrum];
   tfae_have 2 → 3 := by
     intro h;
     use Fin (n + 1), inferInstance, inferInstance, (finiteLineModel n).toModel, inferInstance, (finiteLineModel n).root.1;
@@ -256,32 +259,32 @@ lemma letterlessSpectrum_TFAE : [
       exact finiteLineModel.height_eq;
   tfae_finish;
 
-lemma iff_GL_proves_letterlessSpectrum_univ : A ∈ LogicGL _ ↔ A.letterlessSpectrum = Set.univ := by
+lemma iff_GL_proves_spectrum_univ : A ∈ LogicGL _ ↔ spectrum A = Set.univ := by
   rw [Set.eq_univ_iff_forall];
   apply Iff.trans $ LogicGL_TFAE.out 0 4;
   constructor;
   . intro h n;
-    apply letterlessSpectrum_TFAE.out 1 0 |>.mp;
+    apply spectrum_TFAE.out 1 0 |>.mp;
     intro κ _ _ M _ x rfl;
     apply @h κ _ M (by sorry);
   . intro h κ _ M _ x;
     sorry;
 
-lemma iff_GL_proves_imp_GL_subset_letterlessSpectrum : (A 🡒 B) ∈ LogicGL _ ↔ A.letterlessSpectrum ⊆ B.letterlessSpectrum := by
-  apply Iff.trans iff_GL_proves_letterlessSpectrum_univ;
-  simp only [Formula.letterlessSpectrum_imp, Set.eq_univ_iff_forall, Set.mem_union, Set.mem_compl_iff];
+lemma iff_GL_proves_imp_GL_subset_spectrum : (A 🡒 B) ∈ LogicGL _ ↔ spectrum A ⊆ spectrum B := by
+  apply Iff.trans iff_GL_proves_spectrum_univ;
+  simp only [LetterlessFormula.spectrum_imp, Set.eq_univ_iff_forall, Set.mem_union, Set.mem_compl_iff];
   grind;
 
-lemma iff_GL_proves_iff_GL_subset_letterlessSpectrum : (A 🡘 B) ∈ LogicGL _ ↔ A.letterlessSpectrum = B.letterlessSpectrum := by
+lemma iff_GL_proves_iff_GL_subset_spectrum : (A 🡘 B) ∈ LogicGL _ ↔ spectrum A = spectrum B := by
   suffices (A 🡘 B) ∈ LogicGL _ ↔ (A 🡒 B) ∈ LogicGL _ ∧ (B 🡒 A) ∈ LogicGL _ by
-    grind [Set.Subset.antisymm_iff, iff_GL_proves_imp_GL_subset_letterlessSpectrum];
+    grind [Set.Subset.antisymm_iff, iff_GL_proves_imp_GL_subset_spectrum];
   constructor;
   . intro h;
     sorry;
   . sorry;
 
 lemma GL_proves_letterless_axiomWeakPoint3 : ((□((⊡A) 🡒 B)) ⋎ (□((⊡B) 🡒 A))) ∈ LogicGL _ := by
-  apply iff_GL_proves_letterlessSpectrum_univ.mpr;
+  apply iff_GL_proves_spectrum_univ.mpr;
   grind;
 
 end
