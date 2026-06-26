@@ -1,6 +1,7 @@
 module
 
 public import SeqPL.Formula
+public import SeqPL.Kripke.Rank
 
 @[expose]
 public section
@@ -48,19 +49,6 @@ end Set
 
 
 namespace Formula
-
-@[grind]
-def boxItr (A : Formula α) (n : ℕ) : Formula α := match n with
-  | 0 => A
-  | n + 1 => □(boxItr A n)
-notation "□^[" n "]" A => boxItr A n
-
-
-abbrev boxdot (A : Formula α) : Formula α := A ⋏ □A
-prefix:70 "⊡" => boxdot
-
-
-abbrev TBB (n : ℕ) : Formula α := (□^[(n + 1)]⊥) 🡒 (□^[n]⊥)
 
 
 @[grind]

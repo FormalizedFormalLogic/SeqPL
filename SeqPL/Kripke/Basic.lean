@@ -1,6 +1,6 @@
 module
 
-public import SeqPL.Gentzen.Basic
+public import SeqPL.Formula
 public import SeqPL.Vorspiel.CWF
 
 @[expose]
@@ -138,7 +138,7 @@ variable [Nonempty κ] {M : Model κ α} {A B : Formula α} {Γ Γ' Δ Δ' : For
 
 namespace Model.World
 
-variable {M : Model κ α} {x : M.World} {A B : Formula α}
+variable {M : Model κ α} {x : M.World} {A B : Formula α} {n : ℕ}
 
 @[grind]
 def Forces (x : M.World) : Formula α → Prop
@@ -151,13 +151,26 @@ infix:55 " ⊩ " => Forces
 abbrev NotForces (x : M.World) (A : Formula α) : Prop := ¬x ⊩ A
 infix:55 " ⊮ " => NotForces
 
+@[simp, grind .] lemma forces_top : x ⊩ ⊤ := by grind;
+@[grind =] lemma forces_imp : x ⊩ A 🡒 B ↔ x ⊮ A ∨ x ⊩ B := by grind;
+@[grind =] lemma forces_and : x ⊩ A ⋏ B ↔ x ⊩ A ∧ x ⊩ B := by grind;
+@[grind =] lemma forces_or  : x ⊩ A ⋎ B ↔ x ⊩ A ∨ x ⊩ B := by grind;
+@[grind =] lemma forces_neg : x ⊩ ∼A ↔ x ⊮ A := by grind;
+@[grind =] lemma forces_box : x ⊩ □A ↔ ∀ y, x ≺ y → y ⊩ A := by grind;
+@[grind =] lemma forces_dia : x ⊩ ◇A ↔ ∃ y, x ≺ y ∧ y ⊩ A := by grind;
+@[grind =] lemma forces_boxItr : x ⊩ □^[n]A ↔ ∀ y, x ≺^[n] y → y ⊩ A := by induction n generalizing x <;> grind;
+@[grind =] lemma forces_diaItr : x ⊩ ◇^[n]A ↔ ∃ y, x ≺^[n] y ∧ y ⊩ A := by induction n generalizing x <;> grind;
+@[grind =] lemma forces_boxdot : x ⊩ ⊡A ↔ x ⊩ A ∧ ∀ y, x ≺ y → y ⊩ A := by grind;
 
-@[grind =]
-lemma iff_not_forced_box {A : Formula α} : ¬x ⊩ □A ↔ ∃ y, x ≺ y ∧ ¬y ⊩ A := by grind;
-
-@[simp, grind .]
-lemma not_forces_bot : x ⊮ ⊥ := by grind;
-
+@[simp, grind .] lemma not_forces_bot : x ⊮ ⊥ := by grind;
+@[grind =] lemma not_forces_and : x ⊮ A ⋏ B ↔ x ⊮ A ∨ x ⊮ B := by grind;
+@[grind =] lemma not_forces_or  : x ⊮ A ⋎ B ↔ x ⊮ A ∧ x ⊮ B := by grind;
+@[grind =] lemma not_forces_neg : x ⊮ ∼A ↔ x ⊩ A := by grind;
+@[grind =] lemma not_forces_imp : x ⊮ A 🡒 B ↔ x ⊩ A ∧ x ⊮ B := by grind;
+@[grind =] lemma not_forces_box : x ⊮ □A ↔ ∃ y, x ≺ y ∧ y ⊮ A := by grind;
+@[grind =] lemma not_forces_dia : x ⊮ ◇A ↔ ∀ y, x ≺ y → y ⊮ A := by grind;
+@[grind =] lemma not_forces_boxItr : x ⊮ □^[n]A ↔ ∃ y, x ≺^[n] y ∧ y ⊮ A := by induction n generalizing x <;> grind;
+@[grind =] lemma not_forces_diaItr : x ⊮ ◇^[n]A ↔ ∀ y, x ≺^[n] y → y ⊮ A := by induction n generalizing x <;> grind;
 
 @[grind]
 def ForcesSet (x : M.World) (Γ : FormulaFinset α) : Prop := ∀ A ∈ Γ, x ⊩ A

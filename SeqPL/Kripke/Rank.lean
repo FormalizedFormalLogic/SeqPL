@@ -11,27 +11,20 @@ open Classical
 variable [Nonempty κ]
 
 
+@[grind] def TBB (n : ℕ) : Formula α := (□^[(n + 1)]⊥) 🡒 (□^[n]⊥)
+
+
 namespace Model
 
-variable {M : Model κ α} [Fintype M.World] [M.IsGL] {i j : M.World}
+variable {M : Model κ α} [Fintype M.World] [M.IsGL] {x y : M.World} {n : ℕ}
 
 noncomputable def World.rank {M : Model κ α} [Fintype M.World] [M.IsGL] (x : M.World) : ℕ := cwfHeight (· ≺ ·) x
 
 @[grind ->]
-lemma rank_lt_of_rel (hij : i ≺ j) : i.rank > j.rank := cwfHeight_gt_of hij
+lemma rank_lt_of_rel (hij : x ≺ y) : y.rank < x.rank:= cwfHeight_gt_of hij
 
-end Model
-
-
-namespace RootedModel
-
-variable {M : RootedModel κ α} [Fintype M.World] [M.IsGL] {x y : M.World} {k : ℕ}
-
-noncomputable def height (M : RootedModel κ α) [Fintype M.World] [M.IsGL] : ℕ := M.root.1.rank
-
-lemma exists_of_lt_height (hn : k < x.rank) : ∃ y : M.World, x ≺ y ∧ y.rank = k := cwfHeight_lt hn
-
-lemma height_lt_iff_relItr {n : ℕ} {x : M.World} : x.rank < n ↔ ∀ y, ¬x ≺^[n] y := by
+@[grind =]
+lemma iff_rank_lt {n : ℕ} {x : M.World} : x.rank < n ↔ ∀ y, ¬x ≺^[n] y := by
   match n with
   |     0 => simp_all
   | n + 1 =>
@@ -39,7 +32,7 @@ lemma height_lt_iff_relItr {n : ℕ} {x : M.World} : x.rank < n ↔ ∀ y, ¬x �
       calc
         _ ↔ x.rank ≤ n                   := Nat.lt_add_one_iff
         _ ↔ ∀ y, x ≺ y → y.rank < n      := this
-        _ ↔ ∀ y, x ≺ y → ∀ k, ¬y ≺^[n] k := by grind [height_lt_iff_relItr (n := n)];
+        _ ↔ ∀ y, x ≺ y → ∀ k, ¬y ≺^[n] k := by grind [iff_rank_lt (n := n)];
         _ ↔ ∀ k j, x ≺ j → ¬j ≺^[n] k    := by grind;
         _ ↔ ∀ j, ¬x ≺^[n + 1] j          := by simp;
     constructor
@@ -47,29 +40,106 @@ lemma height_lt_iff_relItr {n : ℕ} {x : M.World} : x.rank < n ↔ ∀ y, ¬x �
       exact lt_of_lt_of_le (cwfHeight_gt_of Rxy) h;
     · exact cwfHeight_le;
 
-lemma le_height_iff_relItr : k ≤ x.rank ↔ ∃ y, x ≺^[k] y := calc
-  _ ↔ ¬x.rank < k    := Iff.symm Nat.not_lt
-  _ ↔ ∃ y, x ≺^[k] y := by simp [height_lt_iff_relItr]
+lemma iff_le_rank : n ≤ x.rank ↔ ∃ y, x ≺^[n] y := calc
+  _ ↔ ¬x.rank < n    := Iff.symm Nat.not_lt
+  _ ↔ ∃ y, x ≺^[n] y := by simp [iff_rank_lt]
 
-lemma height_eq_iff_relItr : x.rank = k ↔ (∃ y, x ≺^[k] y) ∧ (∀ y, x ≺^[k] y → ∀ z, ¬y ≺ z) := calc
-  _ ↔ x.rank < k + 1 ∧ k ≤ x.rank                       := by simpa [Nat.lt_succ_iff] using Nat.eq_iff_le_and_ge;
-  _ ↔ (∀ y, ¬x ≺^[k + 1] y) ∧ (∃ y, x ≺^[k] y)          := by rw [height_lt_iff_relItr, le_height_iff_relItr];
-  _ ↔ (∀ l y, x ≺^[k] y → ¬y ≺ l) ∧ (∃ y, x ≺^[k] y)    := by simp only [Model.relItr_succ']; grind;
-  _ ↔ (∃ y, x ≺^[k] y) ∧ (∀ y, x ≺^[k] y → ∀ z, ¬y ≺ z) := by grind;
+lemma iff_rank_eq : x.rank = n ↔ (∃ y, x ≺^[n] y) ∧ (∀ y, x ≺^[n] y → ∀ z, ¬y ≺ z) := calc
+  _ ↔ x.rank < n + 1 ∧ n ≤ x.rank                       := by simpa [Nat.lt_succ_iff] using Nat.eq_iff_le_and_ge;
+  _ ↔ (∀ y, ¬x ≺^[n + 1] y) ∧ (∃ y, x ≺^[n] y)          := by rw [iff_rank_lt, iff_le_rank];
+  _ ↔ (∀ l y, x ≺^[n] y → ¬y ≺ l) ∧ (∃ y, x ≺^[n] y)    := by simp only [Model.relItr_succ']; grind;
+  _ ↔ (∃ y, x ≺^[n] y) ∧ (∀ y, x ≺^[n] y → ∀ z, ¬y ≺ z) := by grind;
 
-lemma exists_rank_terminal (x : M.World) : ∃ y, x ≺^[x.rank] y := le_height_iff_relItr.mp (by simp)
+lemma of_lt_rank (hn : n < x.rank) : ∃ y : M.World, x ≺ y ∧ y.rank = n := cwfHeight_lt hn
 
-lemma terminal_rel_height (h : x ≺^[x.rank] y) : ∀ z, ¬y ≺ z := by
+lemma exists_rank_terminal (x : M.World) : ∃ y, x ≺^[x.rank] y := iff_le_rank.mp (by simp)
+
+lemma terminal_rel_terminal (h : x ≺^[x.rank] y) : ∀ z, ¬y ≺ z := by
   intro z Ryz;
   suffices x.rank + 1 ≤ x.rank by omega;
-  apply le_height_iff_relItr.mpr;
+  apply iff_le_rank.mpr;
   exact ⟨z, Model.relItr_succ'.mpr ⟨y, h, Ryz⟩⟩;
 
-lemma not_rel_over_rank (h : x.rank < k) : ¬x ≺^[k] y := by
+lemma not_rel_over_rank (h : x.rank < n) : ¬x ≺^[n] y := by
   by_contra Rxy;
-  rw [show k = x.rank + (k - x.rank) by omega] at Rxy;
-  obtain ⟨z, Rxz, Rzy⟩ := Model.relItr_decomp Rxy;
-  exact terminal_rel_height Rxz y $ Model.relItr_unwrap_trans_pos (by omega) Rzy;
+  rw [show n = x.rank + (n - x.rank) by omega] at Rxy;
+  obtain ⟨z, Rxz, Rzy⟩ : ∃ z, x ≺^[x.rank] z ∧ z ≺^[n - x.rank] y := Model.relItr_decomp Rxy;
+  exact terminal_rel_terminal Rxz y $ Model.relItr_unwrap_trans_pos (by omega) Rzy;
+
+@[grind =]
+lemma iff_rank_lt_forces_boxItr_bot : x.rank < n ↔ x ⊩ (□^[n]⊥) := by grind;
+
+@[grind =>]
+lemma pos_rank_of_forces_dia (h : x ⊩ ◇A) : 0 < x.rank := by grind;
+
+lemma iff_forces_dia_top_pos_rank : (x ⊩ ◇⊤) ↔ 0 < x.rank := by
+  constructor;
+  . exact pos_rank_of_forces_dia;
+  . intro h;
+    apply Model.World.forces_dia.mpr;
+    obtain ⟨y, Rxy⟩ := exists_rank_terminal x;
+    use y;
+    grind;
+
+@[grind =>]
+lemma lt_rank_of_forces_diaItr (h : x ⊩ ◇^[n + 1]A) : n < x.rank := by
+  induction n generalizing A x with
+  | zero => grind;
+  | succ n ih =>
+    replace h : x ⊩ ◇◇^[n + 1]A := by grind [Formula.diaItr_comp];
+    obtain ⟨y, Rxy, hy⟩ := Model.World.forces_dia.mp h;
+    have : n < y.rank := ih hy;
+    have : y.rank < x.rank := rank_lt_of_rel Rxy;
+    omega;
+
+lemma iff_forces_diaItr_top_lt_rank : (x ⊩ ◇^[n + 1]⊤) ↔ n < x.rank := by
+  constructor;
+  . exact lt_rank_of_forces_diaItr;
+  . intro h;
+    apply Model.World.forces_diaItr.mpr;
+    obtain ⟨y, Rxy⟩ := exists_rank_terminal x;
+    use y;
+    constructor;
+    . exact Model.relItr_reduce_trans_pos (by omega) (by omega) (by omega) Rxy;
+    . grind;
+
+lemma iff_not_forces_diaItr_top_le_rank : (x ⊮ ◇^[n + 1]⊤) ↔ x.rank ≤ n := by
+  grind [iff_forces_diaItr_top_lt_rank]
+
+omit [Fintype M.World] [M.IsGL] in @[grind =] lemma World.forces_TBB : x ⊩ (TBB n) ↔ x ⊩ (◇^[n + 1]⊤) ∨ x ⊮ (◇^[n]⊤) := by grind
+omit [Fintype M.World] [M.IsGL] in @[grind =] lemma World.not_forces_TBB : x ⊮ (TBB n) ↔ x ⊮ (◇^[n + 1]⊤) ∧ x ⊩ (◇^[n]⊤) := by grind
+
+lemma iff_forces_TBB_zero_neq_rank : x ⊩ (TBB 0) ↔ x.rank ≠ 0 := by grind [iff_forces_diaItr_top_lt_rank];
+
+lemma iff_not_forces_TBB_zero_eq_rank_zero : x ⊮ (TBB 0) ↔ x.rank = 0 := by grind [iff_forces_TBB_zero_neq_rank];
+
+lemma iff_forces_TBB_pos_neq_rank : x ⊩ (TBB (n + 1)) ↔ x.rank ≠ (n + 1) := by
+  apply Iff.trans World.forces_TBB;
+  rw [iff_forces_diaItr_top_lt_rank, iff_not_forces_diaItr_top_le_rank];
+  omega;
+
+lemma iff_not_forces_TBB_pos_eq_rank : x ⊮ (TBB (n + 1)) ↔ x.rank = (n + 1) := by
+  grind [iff_forces_TBB_pos_neq_rank];
+
+@[grind =]
+lemma iff_forces_TBB_neq_rank : x ⊩ (TBB n) ↔ x.rank ≠ n := by
+  match n with
+  | 0     => exact iff_forces_TBB_zero_neq_rank;
+  | n + 1 => exact iff_forces_TBB_pos_neq_rank;
+
+@[grind =]
+lemma iff_not_forces_TBB_eq_rank : x ⊮ (TBB n) ↔ x.rank = n := by grind;
+
+end Model
+
+
+namespace RootedModel
+
+open Model
+
+variable {M : RootedModel κ α} [Fintype M.World] [M.IsGL] {x y : M.World} {k : ℕ}
+
+noncomputable def height (M : RootedModel κ α) [Fintype M.World] [M.IsGL] : ℕ := M.root.1.rank
 
 @[grind <=]
 lemma rank_lt_height (Rrx : M.root.1 ≺ x) : x.rank < M.height := cwfHeight_gt_of Rrx
@@ -92,6 +162,7 @@ lemma iff_eq_rank_height_is_root : x.rank = M.height ↔ x = M.root.1 := by
     grind;
   . tauto;
 
+lemma root_not_forces_TBB_height : M.root.1 ⊮ (TBB M.height) := by grind;
 
 namespace extendRoot
 
@@ -102,7 +173,7 @@ lemma eq_extendRoot_height_extendRoot_root_rank : (M.extendRoot n).height = (M.e
   dsimp [height]
 
 @[simp, grind .]
-lemma height_pos : 0 < (M.extendRoot n).height := lt_cwfHeight (b := Sum.inl M.root.1) (by grind) (by omega)
+lemma height_pos : 0 < (M.extendRoot n).height := lt_cwfHeight (b := embed M.root.1) (by grind [embed]) (by omega)
 
 namespace Ext1
 
@@ -114,7 +185,7 @@ lemma eq_height_original_height_succ : (M.extendRoot 1).height = M.height + 1 :=
   suffices h ≤ M.height + 1 ∧ M.height < h by omega;
   constructor
   · suffices h - 1 ≤ M.height from Nat.le_add_of_sub_le this;
-    apply le_height_iff_relItr.mpr;
+    apply iff_le_rank.mpr;
     wlog lpos : 0 < h - 1;
     . use M.root.1;
       grind;
@@ -134,7 +205,7 @@ lemma eq_height_original_height_succ : (M.extendRoot 1).height = M.height + 1 :=
       exact Model.relItr_reduce_trans_pos (by grind) (by grind) (by omega) Rr₀x₀;
 
   · suffices M.height + 1 ≤ r.1.rank from this;
-    apply le_height_iff_relItr.mpr;
+    apply iff_le_rank.mpr;
     rcases exists_rank_terminal M.root.1 with ⟨y, hy⟩;
     use ↑y, ↑M.root.1;
     constructor;
@@ -143,7 +214,7 @@ lemma eq_height_original_height_succ : (M.extendRoot 1).height = M.height + 1 :=
 
 @[simp, grind .]
 lemma eq_embed_original_rank_original_rank {x₀ : M.World} : (embed (n := 1) x₀).rank = x₀.rank := by
-  apply height_eq_iff_relItr.mpr;
+  apply iff_rank_eq.mpr;
   constructor;
   . obtain ⟨y₀, Rxy⟩ := exists_rank_terminal x₀;
     use y₀;

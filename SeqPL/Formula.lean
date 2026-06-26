@@ -16,8 +16,10 @@ deriving Repr, DecidableEq
 
 namespace Formula
 
+variable {A B : Formula α}
+
 prefix:100 "#" => atom
-notation:90 "⊥" => bot
+notation:max "⊥" => bot
 infixr:85 " 🡒 " => imp
 prefix:95 "□" => box
 
@@ -31,8 +33,37 @@ abbrev and (A B : Formula α) : Formula α := ∼(A 🡒 ∼B)
 infixl:84 " ⋏ " => and
 
 abbrev top : Formula α := ∼⊥
-notation "⊤" => top
+notation:max "⊤" => top
 
+abbrev dia (A : Formula α) : Formula α := ∼□(∼A)
+prefix:95 "◇" => dia
+
+@[grind]
+def boxItr (A : Formula α) (n : ℕ) : Formula α := match n with
+  | 0 => A
+  | n + 1 => □(boxItr A n)
+notation:95 "□^[" n "]" A:max => boxItr A n
+
+@[grind =_]
+lemma boxItr_one : (□^[1]A) = □A := by grind;
+
+lemma boxItr_comp {n m : ℕ} : (□^[n + m]A) = □^[n](□^[m]A) := by
+  induction n generalizing A <;> grind;
+
+@[grind]
+def diaItr (A : Formula α) (n : ℕ) : Formula α := match n with
+  | 0 => A
+  | n + 1 => ◇(diaItr A n)
+notation:95 "◇^[" n "]" A:max => diaItr A n
+
+@[grind =_]
+lemma diaItr_one : (◇^[1]A) = ◇A := by grind;
+
+lemma diaItr_comp {n m : ℕ} : (◇^[n + m]A) = ◇^[n](◇^[m]A) := by
+  induction n generalizing A <;> grind;
+
+abbrev boxdot (A : Formula α) : Formula α := A ⋏ □A
+prefix:70 "⊡" => boxdot
 
 @[grind]
 def IsBox : Formula α → Prop
