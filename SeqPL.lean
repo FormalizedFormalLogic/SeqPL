@@ -2,7 +2,7 @@ module  -- shake: keep-all
 
 public import SeqPL.Arithmetic.Interpret
 public import SeqPL.Classification.Letterless
-public import SeqPL.Formula
+public import SeqPL.Formula.Basic
 public import SeqPL.Formula.Letterless
 public import SeqPL.Gentzen.Basic
 public import SeqPL.Gentzen.WithCut

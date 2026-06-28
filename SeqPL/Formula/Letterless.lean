@@ -1,6 +1,6 @@
 module
 
-public import SeqPL.Formula
+public import SeqPL.Formula.Basic
 
 @[expose]
 public section
@@ -52,6 +52,7 @@ namespace LetterlessFormula
 
 variable {A : LetterlessFormula}
 
+@[grind]
 def lift : LetterlessFormula → Formula α
   | ⊥ => ⊥
   | A 🡒 B => lift A 🡒 lift B

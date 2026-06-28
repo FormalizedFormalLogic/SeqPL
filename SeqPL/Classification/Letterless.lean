@@ -11,6 +11,8 @@ public import Foundation.FirstOrder.Incompleteness.ProvabilityAbstraction.Height
 @[expose]
 public section
 
+noncomputable abbrev TBBMinus [DecidableEq α] (X : Set ℕ) (X_finite : X.Finite := by grind) : Formula α := ∼⋀(X_finite.toFinset.image TBB)
+
 namespace LetterlessFormula
 
 @[grind]
@@ -102,13 +104,8 @@ lemma trace_lconj {Γ : FormulaList Empty} : trace (⋀Γ) = ⋃ A ∈ Γ, trace
 lemma trace_fconj {Γ : FormulaFinset Empty} : trace (⋀Γ) = ⋃ A ∈ Γ, trace A := by
   simp [FormulaFinset.conj, trace_lconj];
 
-@[simp, grind .]
-lemma trace_TBBMinus {s : Finset ℕ} : trace (∼⋀Finset.image TBB s) = (↑s)ᶜ := by
-  rw [trace_neg];
-  apply compl_inj_iff.mpr;
-  ext i;
-  simp [trace_fconj]
-
+@[simp, grind =]
+lemma trace_TBBMinus {s : Set ℕ} (hs : s.Finite) : trace (TBBMinus s) = sᶜ := by simp [trace_neg, trace_fconj];
 
 @[grind .]
 lemma spectrum_finite_or_cofinite : A.spectrum.Finite ∨ A.spectrum.Cofinite := by
@@ -272,7 +269,7 @@ lemma iff_GL_proves_iff_GL_subset_spectrum : (A 🡘 B) ∈ LogicGL _ ↔ spectr
     sorry;
   . sorry;
 
-lemma LetterlessFormula.TBB_normalization_of_finite_trace (finite : (trace A).Finite) : (A 🡘 ⋀(finite.toFinset.image TBB)) ∈ LogicGL _ := by
+lemma LetterlessFormula.TBB_normalization_of_finite_trace (h : (trace A).Finite) : (A 🡘 ⋀(h.toFinset.image TBB)) ∈ LogicGL _ := by
   apply iff_GL_proves_iff_GL_subset_spectrum.mpr;
   calc
     _ = ⋂ i ∈ trace A, spectrum (TBB i) := by
@@ -282,7 +279,7 @@ lemma LetterlessFormula.TBB_normalization_of_finite_trace (finite : (trace A).Fi
     _ = _ := by
       simp [LetterlessFormula.spectrum_fconj];
 
-lemma LetterlessFormula.TBB_normalization_of_finite_spectrum (finite : (spectrum A).Finite) : (A 🡘 ∼⋀(finite.toFinset.image TBB)) ∈ LogicGL _ := by
+lemma LetterlessFormula.TBBMinus_normalization_of_finite_spectrum (h : (spectrum A).Finite) : (A 🡘 TBBMinus _ h) ∈ LogicGL _ := by
   have := TBB_normalization_of_finite_trace (A := ∼A) (by grind);
   sorry;
 
@@ -371,7 +368,7 @@ lemma regular_TBB : Regular T (TBB n) := by
 lemma regular_fconj_TBB_finset {Γ : Finset ℕ} : Regular T (⋀(Γ.image TBB)) := by grind;
 
 @[simp, grind .]
-lemma singular_TBBMinus {s : Finset ℕ} : Singular T (∼⋀(s.image TBB)) := by grind;
+lemma singular_TBBMinus (hs : s.Finite) : Singular T (TBBMinus s) := by grind;
 
 end LetterlessFormula
 
@@ -379,7 +376,7 @@ end LetterlessFormula
 namespace LetterlessFormulaSet
 
 variable {T₀ T U : FirstOrder.ArithmeticTheory} [T.Δ₁] {A B : LetterlessFormula}
-variable {X : LetterlessFormulaSet} {A : LetterlessFormula}
+variable {X : LetterlessFormulaSet} {A : LetterlessFormula} {s : Set ℕ}
 
 @[grind] def spectrum (X : LetterlessFormulaSet) : Set ℕ := ⋂ A ∈ X, LetterlessFormula.spectrum A
 @[grind] def trace (X : LetterlessFormulaSet) : Set ℕ := X.spectrumᶜ
@@ -398,19 +395,20 @@ lemma eq_trace_singleton : trace {A} = LetterlessFormula.trace A := by
   simp;
 
 lemma eq_TBB_trace : s = LetterlessFormulaSet.trace (TBB '' s) := by simp [eq_trace]
+
+@[simp, grind =]
 lemma eq_trace_TBB_trace : X.trace = LetterlessFormulaSet.trace (TBB '' X.trace) := eq_TBB_trace
 
 @[simp, grind .]
 lemma regular_TBB_set {X : Set ℕ} : LetterlessFormulaSet.Regular T (X.image TBB) := by grind;
 
-lemma eq_trace_TBBMinus_singleton : trace {∼⋀Finset.image TBB s} = (↑s)ᶜ := by
-  rw [eq_trace_singleton];
-  rw [LetterlessFormula.trace_TBBMinus];
+@[simp, grind =]
+lemma eq_trace_TBBMinus_singleton (hs : s.Finite) : trace {TBBMinus s} = sᶜ := by grind [eq_trace_singleton];
 
 @[simp, grind .]
-lemma singular_TBBMinus_singleton
-  {Beta : Set ℕ} (Beta_cofinite : Beta.Cofinite := by grind) : LetterlessFormulaSet.Singular T {∼⋀(Beta_cofinite.toFinset.image TBB)} := by
-  sorry;
+lemma singular_TBBMinus_singleton (hs : s.Finite) : LetterlessFormulaSet.Singular T {TBBMinus _ hs} := by
+  simp only [Singular, Regular, Set.mem_singleton_iff, forall_eq];
+  grind;
 
 end LetterlessFormulaSet
 
@@ -443,7 +441,7 @@ lemma iff_regular_trace_finite : A.Regular T ↔ (trace A).Finite := by
   . contrapose!;
     intro h;
     replace h : (spectrum A).Finite := by grind;
-    apply iff_singular_of_provable_iff (LetterlessFormula.TBB_normalization_of_finite_spectrum h) |>.mpr;
+    apply iff_singular_of_provable_iff (LetterlessFormula.TBBMinus_normalization_of_finite_spectrum h) |>.mpr;
     grind;
   . intro h;
     apply iff_regular_of_provable_iff (LetterlessFormula.TBB_normalization_of_finite_trace h) |>.mpr;
@@ -458,7 +456,7 @@ variable {X : LetterlessFormulaSet} {A : LetterlessFormula}
 
 @[grind <=]
 lemma trace_cofinite_of_singular (h : X.Singular T) : X.trace.Cofinite := by
-  simp [LetterlessFormulaSet.trace];
+  simp [LetterlessFormulaSet.trace, Set.Cofinite];
   sorry;
 
 end LetterlessFormulaSet
@@ -475,8 +473,12 @@ lemma iff_subset_sumQuasiNormal_subset_spectrum (hSR : X.Regular T ∨ Y.Singula
   : ((LogicGL α) +ᴸ X) ⊆ ((LogicGL α) +ᴸ Y) ↔ Y.spectrum ⊆ X.spectrum := by calc
   -- _ ↔ ∀ A ∈ Y, A ∈ ((LogicGL _) +ᴸ Y) → A ∈ ((LogicGL _) +ᴸ X) := by grind;
   _ ↔ ∀ (A : LetterlessFormula), A ∈ X → ↑A ∈ ((LogicGL α) +ᴸ Y) := by
-
-    sorry; -- Logic.sumQuasiNormal.iff_subset
+    rw [Logic.sumQuasiNormal.iff_subset];
+    constructor;
+    . intro h A hA;
+      apply @h A (by sorry);
+    . intro h;
+      sorry;
   _ ↔ ∀ (A : LetterlessFormula), A ∈ X → Y.spectrum ⊆ A.spectrum := by
     constructor;
     . intro h A hA;
@@ -506,49 +508,76 @@ lemma iff_eq_sumQuasiNormal_eq_trace (hSR : (X.Singular T ∧ Y.Singular T) ∨ 
   apply Iff.trans $ iff_eq_sumQuasiNormal_eq_spectrum (α := α) hSR;
   simp [LetterlessFormulaSet.trace];
 
-abbrev LogicGLAlpha {α} (Alpha : Set ℕ) : Logic α := (LogicGL α) +ᴸ ↑(Alpha.image TBB)
+abbrev LogicGLAlpha {α} (Alpha : Set ℕ) : Logic α := (LogicGL α) +ᴸ ↑(Alpha.image $ TBB (α := Empty))
 abbrev LogicGLAlphaω {α} : Logic α := LogicGLAlpha Set.univ
-abbrev LogicGLBetaMinus {α} [DecidableEq α] (Beta : Set ℕ) (Beta_cofinite : Beta.Cofinite := by grind) :=
-  (LogicGL α) +ᴸ ∼⋀(Beta_cofinite.toFinset.image TBB)
+abbrev LogicGLBetaMinus {α} [DecidableEq α] (Beta : Set ℕ) (Beta_cofinite : Beta.Cofinite := by grind) := (LogicGL α) +ᴸ (LetterlessFormulaSet.lift { TBBMinus _ Beta_cofinite })
 
-variable {X : LetterlessFormulaSet}
 
-lemma eq_letterless_GL_quasiNormal_extension_GLAlpha_of_regular (X_regular : X.Regular T) : ((LogicGL α) +ᴸ ↑X) = LogicGLAlpha (X.trace) := by
-  apply
-    (show LetterlessFormulaSet.lift (TBB '' X.trace) = TBB '' X.trace by sorry) ▸
-    iff_eq_sumQuasiNormal_eq_trace (T := T) (X := X) (Y := X.trace.image TBB) (by grind)
-    |>.mpr LetterlessFormulaSet.eq_trace_TBB_trace;
 
-lemma eq_letterless_GL_quasiNormal_extension_GLBetaMinus_of_singular [DecidableEq α] (X_singular : X.Singular T) :
-  ((LogicGL α) +ᴸ ↑X) = LogicGLBetaMinus X.trace (LetterlessFormulaSet.trace_cofinite_of_singular X_singular) := by
-  dsimp [LogicGLBetaMinus];
-  letI B : LetterlessFormula := ∼⋀((LetterlessFormulaSet.trace_cofinite_of_singular X_singular).toFinset.image TBB);
-  apply
-    (show (LetterlessFormulaSet.lift (α := α) {B}) = ({ ∼⋀((LetterlessFormulaSet.trace_cofinite_of_singular X_singular).toFinset.image TBB) }) by sorry) ▸
-    iff_eq_sumQuasiNormal_eq_trace (T := T) (X := X) (Y := {B}) (α := α) (by grind) |>.mpr
-    $ by
-      rw [LetterlessFormulaSet.eq_trace_TBBMinus_singleton];
-      apply compl_inj_iff.mpr;
-      rw [Set.Finite.coe_toFinset];
-      grind;
+namespace FormulaSet
+
+def Letterless {α} (X : FormulaSet α) : Prop := ∀ A ∈ X, A.Letterless
+
+end FormulaSet
+
+
+namespace LetterlessFormula
+
+@[simp, grind =] lemma eq_lift_bot : lift (α := α) ⊥ = ⊥ := by grind;
+@[simp, grind =] lemma eq_lift_box_bot : lift (α := α) (□⊥) = □⊥ := by grind;
+@[simp, grind =] lemma eq_lift_boxItr_bot {n : ℕ} : lift (α := α) (□^[n]⊥) = □^[n]⊥ := by induction n <;> grind;
+@[simp, grind =] lemma eq_lift_and : lift (α := α) (A ⋏ B) = (lift A) ⋏ (lift B) := by grind;
+
+@[simp, grind =]
+lemma eq_lift_lconj {Γ : LetterlessFormulaList} : lift (α := α) (⋀Γ) = ⋀(Γ.map lift) := by
+  match Γ with
+  | [] | [A] => grind;
+  | A :: B :: Γ => simp [FormulaList.conj, eq_lift_and, eq_lift_lconj];
+
+@[simp, grind =] lemma eq_lift_TBB {n : ℕ} : lift (α := α) (TBB n) = TBB n := by grind;
+
+end LetterlessFormula
+
+
+namespace LetterlessFormulaSet
+
+@[simp, grind =]
+lemma eq_lift_singleton {A : LetterlessFormula} {B : Formula α} : lift (α := α) {A} = {B} ↔ A.lift = B := by simp [lift];
+
+@[simp, grind =]
+lemma eq_lift_TBB_set {X : Set ℕ} : lift (α := α) (TBB '' X) = TBB '' X := by
+  ext A;
+  constructor;
+  . rintro ⟨A, hA, rfl⟩; grind;
+  . rintro ⟨i, hi, rfl⟩; grind [LetterlessFormulaSet.lift];
+
+end LetterlessFormulaSet
+
+
+lemma eq_letterless_GL_quasiNormal_extension_GLAlpha_of_regular (X_regular : X.Regular T)
+  : ((LogicGL α) +ᴸ ↑X) = LogicGLAlpha X.trace := by
+  apply iff_eq_sumQuasiNormal_eq_trace (T := T) (by grind) |>.mpr;
+  grind;
+
+lemma eq_letterless_GL_quasiNormal_extension_GLBetaMinus_of_singular [DecidableEq α] (X_singular : X.Singular T)
+  : ((LogicGL α) +ᴸ ↑X) = LogicGLBetaMinus X.trace := by
+  apply iff_eq_sumQuasiNormal_eq_trace (T := T) (by grind) |>.mpr;
+  grind;
 
 /--
-  Quasi-normal extension of `Modal.GL` by closed formula set `X` is
-  either `Modal.GLα (X.letterlessTrace)` (`X` is regular) or `Modal.GLβMinus (X.letterlessTrace)` (`X` is singular)
+  Quasi-normal `GL` extension by letterless formula set `X` is
+  either `LogicGLAlpha X.trace` (when `X` is regular, so `X.trace` is finite) or `LogicGLBetaMinus X.trace` (when `X` is singular, so `X.trace` is cofinite)
 -/
 theorem eq_letterless_quasiNormal_GL_extension [DecidableEq α] :
   (∃ _ : X.Regular T, ((LogicGL α) +ᴸ ↑X) = LogicGLAlpha X.trace) ∨
-  (∃ _ : X.Singular T, ((LogicGL α) +ᴸ ↑X) = LogicGLBetaMinus X.trace (LetterlessFormulaSet.trace_cofinite_of_singular (T := T) ‹_›)) := by
+  (∃ _ : X.Singular T, ((LogicGL α) +ᴸ ↑X) = LogicGLBetaMinus X.trace) := by
   by_cases h : X.Regular T;
-  . left; exact ⟨h, eq_letterless_GL_quasiNormal_extension_GLAlpha_of_regular h⟩;
-  . right; exact ⟨h, eq_letterless_GL_quasiNormal_extension_GLBetaMinus_of_singular h⟩;
+  . left;
+    exact ⟨h, eq_letterless_GL_quasiNormal_extension_GLAlpha_of_regular h⟩;
+  . right;
+    exact ⟨h, eq_letterless_GL_quasiNormal_extension_GLBetaMinus_of_singular h⟩;
 
 end
-
-
-
-
 end
-
 
 end

@@ -86,6 +86,7 @@ abbrev FormulaList (α) := List $ Formula α
 
 namespace FormulaList
 
+@[grind]
 protected def conj : FormulaList α → Formula α
 | [] => ⊤
 | [A] => A
@@ -95,6 +96,7 @@ prefix:100 "⋀" => FormulaList.conj
 @[simp, grind .] lemma conj_nil : FormulaList.conj (α := α) [] = ⊤ := rfl
 @[simp, grind .] lemma conj_singleton : FormulaList.conj [A] = A := rfl
 
+@[grind]
 protected def disj : FormulaList α → Formula α
 | [] => ⊥
 | [A] => A
@@ -111,13 +113,14 @@ abbrev FormulaFinset (α) := Finset (Formula α)
 
 namespace FormulaFinset
 
+@[grind]
 protected noncomputable def conj : FormulaFinset α → Formula α := FormulaList.conj ∘ Finset.toList
 prefix:100 "⋀" => FormulaFinset.conj
 
 @[simp, grind .] lemma conj_empty : FormulaFinset.conj (α := α) ∅ = ⊤ := by simp [FormulaFinset.conj]
 @[simp, grind .] lemma conj_singleton : FormulaFinset.conj ({A} : FormulaFinset α) = A := by simp [FormulaFinset.conj]
 
-
+@[grind]
 protected noncomputable def disj : FormulaFinset α → Formula α := FormulaList.disj ∘ Finset.toList
 prefix:100 "⋁" => FormulaFinset.disj
 

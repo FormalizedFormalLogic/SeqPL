@@ -1,6 +1,6 @@
 module
 
-public import SeqPL.Formula
+public import SeqPL.Formula.Basic
 
 @[expose]
 public section
