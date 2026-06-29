@@ -251,6 +251,25 @@ noncomputable def lindenbaum_indexed (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀ 
   else ⟨S, hS⟩
 | (_ :: l) => lindenbaum_indexed BS hS₀ l
 
+lemma subset_lindenbaum_indexed (hS₀ : ⊬ᵍ S₀) (l : FormulaList α) :
+    S₀ ⊆ (lindenbaum_indexed BS hS₀ l).1 := by
+  induction l with
+  | nil => exact ⟨Finset.Subset.refl _, Finset.Subset.refl _⟩
+  | cons x l ih =>
+    match x with
+    | #a | □C | ⊥ => exact ih
+    | (C 🡒 D) =>
+      obtain ⟨iha, ihs⟩ := ih
+      dsimp only [lindenbaum_indexed]
+      generalize lindenbaum_indexed BS hS₀ l = T at iha ihs
+      split
+      · split
+        · exact ⟨iha, ihs.trans (Finset.subset_insert _ _)⟩
+        · exact ⟨iha.trans (Finset.subset_insert _ _), ihs⟩
+      · split
+        · exact ⟨iha.trans (Finset.subset_insert _ _), ihs.trans (Finset.subset_insert _ _)⟩
+        · exact ⟨iha, ihs⟩
+
 lemma mem_lindenbaum_indexed [Fact (⊬ᵍ BS)] {S₀_unProvableGentzen : ⊬ᵍ S₀} :
   A ∈ (lindenbaum_indexed BS S₀_unProvableGentzen l).1.1 → A ∈ S₀.1 := by
   induction l with
@@ -289,8 +308,8 @@ noncomputable def lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)]
       sorry;
   }
 
-lemma subset_lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (hS₀ : ⊬ᵍ S₀) : S₀ ⊆ (lindenbaum BS S₀_subfml hS₀).1 := by
-  sorry
+lemma subset_lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (hS₀ : ⊬ᵍ S₀) : S₀ ⊆ (lindenbaum BS S₀_subfml hS₀).1 :=
+  subset_lindenbaum_indexed hS₀ _
 
 end
 
