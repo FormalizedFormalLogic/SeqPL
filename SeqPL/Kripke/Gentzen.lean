@@ -5,6 +5,7 @@ public import SeqPL.Gentzen.Basic
 public import Mathlib.Data.Finset.Preimage
 public import Mathlib.Data.Finset.Powerset
 public import Mathlib.Data.Finite.Prod
+public import Mathlib.Data.List.Sort
 
 @[expose]
 public section
@@ -156,6 +157,8 @@ end ProvableGentzen
 
 namespace Formula
 
+variable {A B : Formula α}
+
 @[grind]
 def subfmls : Formula α → FormulaFinset α
 | #a    => {#a}
@@ -167,20 +170,42 @@ def subfmls : Formula α → FormulaFinset α
 lemma mem_subfmls_self : A ∈ A.subfmls := by cases A <;> grind
 
 @[grind .]
-lemma mem_subfmls_imp_left {A B : Formula α} : A ∈ (A 🡒 B).subfmls := by grind
+lemma mem_subfmls_imp_left : A ∈ (A 🡒 B).subfmls := by grind
 
 @[grind .]
-lemma mem_subfmls_imp_right {A B : Formula α} : B ∈ (A 🡒 B).subfmls := by grind
+lemma mem_subfmls_imp_right : B ∈ (A 🡒 B).subfmls := by grind
 
 @[grind .]
-lemma mem_subfmls_box {A : Formula α} : A ∈ (□A).subfmls := by grind
+lemma mem_subfmls_box : A ∈ (□A).subfmls := by grind
 
 @[grind →]
-lemma subfmls_trans {A B : Formula α} : A ∈ B.subfmls → A.subfmls ⊆ B.subfmls := by
+lemma subfmls_trans : A ∈ B.subfmls → A.subfmls ⊆ B.subfmls := by
   induction B with
   | imp C D ihC ihD => intro h; grind
   | box C ihC => intro h; grind
   | _ => intro h; grind
+
+omit [DecidableEq α]
+
+@[grind]
+def complexity : Formula α → ℕ
+  | #_    => 0
+  | ⊥     => 0
+  | A 🡒 B => max A.complexity B.complexity + 1
+  | □A    => A.complexity + 1
+
+@[simp, grind .]
+lemma complexity_imp_left : A.complexity < (A 🡒 B).complexity := by grind;
+
+@[simp, grind .]
+lemma complexity_imp_right : B.complexity < (A 🡒 B).complexity := by grind;
+
+@[simp, grind .]
+lemma complexity_box : A.complexity < (□A).complexity := by grind;
+
+@[grind =>]
+lemma complexity_le_of_mem_subfmls [DecidableEq α] (h : A ∈ B.subfmls) : A.complexity ≤ B.complexity := by
+  induction B <;> grind;
 
 end Formula
 
@@ -287,9 +312,10 @@ section
 variable {BS : Sequent α}
 
 open Classical in
+@[grind]
 noncomputable def lindenbaum_indexed (BS : Sequent α) (BS_unprovable : ⊬ᵍ BS) (S₀ : Sequent α) (S₀_unprovable : ⊬ᵍ S₀) : FormulaList α → { S : Sequent α // ⊬ᵍ S }
 | [] => ⟨S₀, S₀_unprovable⟩
-| ((A 🡒 B) :: Γ) =>
+| (A 🡒 B) :: Γ =>
   let ⟨S, hS⟩ := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ;
   if h : (A 🡒 B) ∈ S.1 then
     if h : ⊬ᵍ ((S.1) ⟹ (insert A S.2)) then ⟨(S.1) ⟹ (insert A S.2), h⟩
@@ -307,16 +333,16 @@ noncomputable def lindenbaum_indexed (BS : Sequent α) (BS_unprovable : ⊬ᵍ B
       rwa [(show insert (A 🡒 B) S.2 = S.2 by grind)] at this;
   ⟩
   else ⟨S, hS⟩
-| (_ :: Γ) => lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ
+| _ :: Γ => lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ
 
-lemma subset_lindenbaum_indexed (BS_unprovable : ⊬ᵍ BS) {S₀ : Sequent α} (S₀_unprovable : ⊬ᵍ S₀) {Γ : FormulaList α} : S₀ ⊆ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1 := by
+lemma subset_lindenbaum_indexed {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀} {Γ : FormulaList α} : S₀ ⊆ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1 := by
   induction Γ with
   | nil =>
     exact ⟨Finset.Subset.refl _, Finset.Subset.refl _⟩
   | cons A Γ ih =>
     match A with
-    | #a | □C | ⊥ => exact ih
-    | C 🡒 D =>
+    | #a | □A | ⊥ => exact ih
+    | A 🡒 B =>
       dsimp only [lindenbaum_indexed];
       split_ifs;
       · exact ⟨ih.1.trans (Finset.subset_insert _ _), ih.2⟩
@@ -325,16 +351,16 @@ lemma subset_lindenbaum_indexed (BS_unprovable : ⊬ᵍ BS) {S₀ : Sequent α} 
       · exact ⟨ih.1, ih.2⟩;
 
 lemma subfmls_lindenbaum_indexed
-  (BS_unprovable : ⊬ᵍ BS)
-  {S₀ : Sequent α} (S₀_unprovable : ⊬ᵍ S₀) (S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls)
+  {BS_unprovable : ⊬ᵍ BS}
+  {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀} (S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls)
   {Γ : FormulaList α} (hΓ : ∀ C ∈ Γ, C ∈ BS.subfmls) :
   (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 ∪ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 ⊆ BS.subfmls := by
   induction Γ with
   | nil => exact S₀sub
-  | cons x l ih =>
+  | cons A Γ ih =>
     replace ih := ih (by grind);
-    match x with
-    | #a | □C | ⊥ => exact ih
+    match A with
+    | #a | □A | ⊥ => exact ih
     | (A 🡒 B) =>
       dsimp only [lindenbaum_indexed];
       have : (A 🡒 B) ∈ BS.subfmls := hΓ _ (by simp)
@@ -345,25 +371,118 @@ lemma subfmls_lindenbaum_indexed
       . intro;
         grind;
 
+lemma saturated_lindenbaum_indexed
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (hΓ : (Γ.map (·.complexity)).SortedGE)
+  :
+    (∀ {A B : Formula α},
+        A 🡒 B ∈ Γ →
+        A 🡒 B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 →
+        A ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 ∨ B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1) ∧
+    (∀ {A B : Formula α},
+        A 🡒 B ∈ Γ →
+        A 🡒 B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 →
+        A ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 ∧ B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2)
+  := by
+  induction Γ with
+  | nil => grind;
+  | cons x Γ' ih =>
+    obtain ⟨ihL, ihR⟩ := ih (by sorry);
+    match x with
+    | #a =>
+      constructor;
+      . simp;
+        intro A B hAB;
+        have := @ihL A B hAB;
+        sorry;
+      . sorry;
+    | □C | ⊥ =>
+
+      sorry;
+      /-
+      constructor
+      · intro A B hmem hx
+        refine ihL ?_ hx
+        simp only [List.mem_cons] at hmem; rcases hmem with h | h; · simp at h; · exact h
+      · intro A B hmem hx
+        refine ihR ?_ hx
+        simp only [List.mem_cons] at hmem; rcases hmem with h | h; · simp at h; · exact h
+      -/
+    | C 🡒 D =>
+      sorry;
+      /-
+      have hunp : ⊬ᵍ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ').1 :=
+        (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ').2
+      have hhead' : ∀ P Q : Formula α, P 🡒 Q ∈ Γ' → (C 🡒 D).complexity ≤ (P 🡒 Q).complexity :=
+        fun P Q hmem => hhead _ hmem
+      dsimp only [lindenbaum_indexed]
+      split_ifs with h1 h2 h3 <;>
+        refine ⟨?_, ?_⟩ <;>
+        intro A B hmem hx <;>
+        simp only [List.mem_cons] at hmem <;>
+        grind [ProvableGentzen.union']
+      -/
+
+lemma lindenbaum_indexed_saturated_impL_of_sorted_complexity
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (hΓ : (Γ.map (·.complexity)).SortedGE)
+  (h₁ : A 🡒 B ∈ Γ) (h₂ : A 🡒 B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1)
+  : A ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 ∨ B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 :=
+  (saturated_lindenbaum_indexed hΓ).1 h₁ h₂
+
+lemma lindenbaum_indexed_saturated_impL
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (h : A 🡒 B ∈ Γ)
+  :
+  letI S := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable (Γ.insertionSort (·.complexity ≥ ·.complexity));
+  (A 🡒 B ∈ S.1.1) → A ∈ S.1.2 ∨ B ∈ S.1.1 := by
+  apply lindenbaum_indexed_saturated_impL_of_sorted_complexity;
+  . rw [List.map_insertionSort (f := Formula.complexity) (l := Γ) (r := λ A B => ((A.complexity) ≥ (B.complexity))) (s := (· ≥ ·)) (by grind)];
+    exact List.sortedGE_insertionSort (l := Γ.map (·.complexity));
+  . apply List.mem_insertionSort _ |>.mpr h;
+
+lemma lindenbaum_indexed_saturated_impR_of_sorted_complexity
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (hΓ : (Γ.map (·.complexity)).SortedGE)
+  (h₁ : A 🡒 B ∈ Γ) (h₂ : A 🡒 B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2)
+  : A ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 ∧ B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 :=
+  (saturated_lindenbaum_indexed hΓ).2 h₁ h₂
+
+lemma lindenbaum_indexed_saturated_impR
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (h : A 🡒 B ∈ Γ)
+  :
+  letI S := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable (Γ.insertionSort (·.complexity ≥ ·.complexity));
+  (A 🡒 B ∈ S.1.2) → A ∈ S.1.1 ∧ B ∈ S.1.2 := by
+  apply lindenbaum_indexed_saturated_impR_of_sorted_complexity;
+  . rw [List.map_insertionSort (f := Formula.complexity) (l := Γ) (r := λ A B => ((A.complexity) ≥ (B.complexity))) (s := (· ≥ ·)) (by grind)];
+    exact List.sortedGE_insertionSort (l := Γ.map (·.complexity));
+  . apply List.mem_insertionSort _ |>.mpr h;
+
 noncomputable def lindenbaum
   {BS : Sequent α} [BS_unprovable : Fact (⊬ᵍ BS)] (S₀ : Sequent α) (S₀_unprovable : ⊬ᵍ S₀) (S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls) : ExpandedSequent BS :=
-  let S := lindenbaum_indexed BS (Fact.elim inferInstance) S₀ S₀_unprovable BS.subfmls.toList;
+  letI S := lindenbaum_indexed BS (Fact.elim inferInstance) S₀ S₀_unprovable $ BS.subfmls.toList.insertionSort (·.complexity ≥ ·.complexity);
+  haveI : ∀ C ∈ BS.subfmls.toList.insertionSort (fun A B => A.complexity ≥ B.complexity), C ∈ BS.subfmls := by
+    intro _ hB;
+    exact Finset.mem_toList.mp $ List.mem_insertionSort _ |>.mp hB;
   {
     toSequent := S.1,
     unprovable := S.2,
-    subset_subfmls := subfmls_lindenbaum_indexed (Fact.elim inferInstance) ‹_› ‹_› (by simp)
+    subset_subfmls := subfmls_lindenbaum_indexed ‹_› ‹_›
     saturated := {
       impL := by
         intro A B h;
-        sorry;
+        apply lindenbaum_indexed_saturated_impL ?_ h;
+        exact Finset.mem_toList.mpr $ subfmls_lindenbaum_indexed ‹_› ‹_› $ Finset.mem_union.mpr $ Or.inl h;
       impR := by
         intro A B h;
-        sorry;
+        apply lindenbaum_indexed_saturated_impR ?_ h;
+        exact Finset.mem_toList.mpr $ subfmls_lindenbaum_indexed ‹_› ‹_› $ Finset.mem_union.mpr $ Or.inr h;
     }
   }
 
 lemma subset_lindenbaum {BS : Sequent α} [BS_unprovable : Fact (⊬ᵍ BS)] {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀} {S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls}
-  : S₀ ⊆ (lindenbaum S₀ S₀_unprovable S₀sub).1 := subset_lindenbaum_indexed (Fact.elim inferInstance) S₀_unprovable
+  : S₀ ⊆ (lindenbaum S₀ S₀_unprovable S₀sub).1 := subset_lindenbaum_indexed
 
 end
 
