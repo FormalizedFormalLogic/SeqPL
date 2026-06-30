@@ -3,6 +3,9 @@ module
 public import SeqPL.Kripke.Basic
 public import SeqPL.Gentzen.Basic
 public import Mathlib.Data.Finset.Preimage
+public import Mathlib.Data.Finset.Powerset
+public import Mathlib.Data.Finite.Prod
+public import Mathlib.Data.List.Sort
 
 @[expose]
 public section
@@ -154,6 +157,9 @@ end ProvableGentzen
 
 namespace Formula
 
+variable {A B : Formula α}
+
+@[grind]
 def subfmls : Formula α → FormulaFinset α
 | #a    => {#a}
 | ⊥     => {⊥}
@@ -161,7 +167,45 @@ def subfmls : Formula α → FormulaFinset α
 | □A    => insert (□A) A.subfmls
 
 @[grind .]
-lemma mem_subfmls_self : A ∈ A.subfmls := by cases A <;> simp [Formula.subfmls];
+lemma mem_subfmls_self : A ∈ A.subfmls := by cases A <;> grind
+
+@[grind .]
+lemma mem_subfmls_imp_left : A ∈ (A 🡒 B).subfmls := by grind
+
+@[grind .]
+lemma mem_subfmls_imp_right : B ∈ (A 🡒 B).subfmls := by grind
+
+@[grind .]
+lemma mem_subfmls_box : A ∈ (□A).subfmls := by grind
+
+@[grind →]
+lemma subfmls_trans : A ∈ B.subfmls → A.subfmls ⊆ B.subfmls := by
+  induction B with
+  | imp C D ihC ihD => intro h; grind
+  | box C ihC => intro h; grind
+  | _ => intro h; grind
+
+omit [DecidableEq α]
+
+@[grind]
+def complexity : Formula α → ℕ
+  | #_    => 0
+  | ⊥     => 0
+  | A 🡒 B => max A.complexity B.complexity + 1
+  | □A    => A.complexity + 1
+
+@[simp, grind .]
+lemma complexity_imp_left : A.complexity < (A 🡒 B).complexity := by grind;
+
+@[simp, grind .]
+lemma complexity_imp_right : B.complexity < (A 🡒 B).complexity := by grind;
+
+@[simp, grind .]
+lemma complexity_box : A.complexity < (□A).complexity := by grind;
+
+@[grind =>]
+lemma complexity_le_of_mem_subfmls [DecidableEq α] (h : A ∈ B.subfmls) : A.complexity ≤ B.complexity := by
+  induction B <;> grind;
 
 end Formula
 
@@ -173,9 +217,23 @@ def subfmls (Γ : FormulaFinset α) : Finset (Formula α) := Finset.biUnion Γ F
 
 @[grind .] lemma subset_self_subfmls : Γ ⊆ Γ.subfmls := by grind;
 
+@[grind →]
+lemma mem_subfmls_subfmls {Γ : FormulaFinset α} {B C : Formula α} (hB : B ∈ Γ.subfmls) (hC : C ∈ B.subfmls) : C ∈ Γ.subfmls := by
+  simp only [FormulaFinset.subfmls, Finset.mem_biUnion] at hB ⊢
+  grind [Formula.subfmls_trans]
+
+lemma subset_subfmls {Γ : FormulaFinset α} : Γ.subfmls ⊆ Δ → Γ.subfmls ⊆ Δ.subfmls := by
+  intro h A hA;
+  simp [FormulaFinset.subfmls];
+  use A;
+  constructor;
+  . apply h hA;
+  . grind;
+
 @[grind]
 noncomputable def prebox (Γ : FormulaFinset α) : FormulaFinset α := Γ.preimage (□·) $ by grind [Set.InjOn];
 
+omit [DecidableEq α] in
 @[grind =]
 lemma iff_mem_prebox_mem : A ∈ Γ.prebox ↔ □A ∈ Γ := by simp [FormulaFinset.prebox];
 
@@ -197,13 +255,18 @@ variable {S : Sequent α}
 
 @[grind .] lemma subset_self_subfmls : S.ant ∪ S.suc ⊆ S.subfmls := by grind;
 
+@[grind →]
+lemma mem_subfmls_subfmls {S : Sequent α} {B C : Formula α} (hB : B ∈ S.subfmls) (hC : C ∈ B.subfmls) : C ∈ S.subfmls := by
+  simp only [Sequent.subfmls, Finset.mem_union] at hB ⊢
+  grind [FormulaFinset.mem_subfmls_subfmls]
+
 structure Saturated (S : Sequent α) where
   impL : ∀ {A B}, A 🡒 B ∈ S.1 → A ∈ S.2 ∨ B ∈ S.1
   impR : ∀ {A B}, A 🡒 B ∈ S.2 → A ∈ S.1 ∧ B ∈ S.2
 
 structure Expanded (BS : Sequent α) (S : Sequent α) extends S.Saturated where
   subset_subfmls : S.1 ∪ S.2 ⊆ BS.subfmls
-  unProvableGentzen     : ⊬ᵍ S
+  unprovable     : ⊬ᵍ S
 
 end Sequent
 
@@ -211,11 +274,32 @@ end Sequent
 structure ExpandedSequent (BS : Sequent α) extends Sequent α where
   saturated         : toSequent.Saturated
   subset_subfmls    : toSequent.1 ∪ toSequent.2 ⊆ BS.subfmls
-  unProvableGentzen : ⊬ᵍ toSequent
+  unprovable        : ⊬ᵍ toSequent
 
 namespace ExpandedSequent
 
-attribute [grind .] ExpandedSequent.saturated ExpandedSequent.subset_subfmls ExpandedSequent.unProvableGentzen
+attribute [grind .] ExpandedSequent.saturated ExpandedSequent.subset_subfmls ExpandedSequent.unprovable
+
+def widen {BS₀ BS₁ : Sequent α} (S : ExpandedSequent BS₀) (hBS : BS₀ ⊆ BS₁) : ExpandedSequent BS₁ where
+  toSequent      := S.toSequent
+  saturated      := S.saturated
+  unprovable     := S.unprovable
+  subset_subfmls := by
+    trans BS₀.subfmls;
+    . exact S.subset_subfmls;
+    . intro A;
+      simp [Sequent.subfmls, Finset.mem_union, FormulaFinset.subfmls];
+      rintro (⟨B, hB₁, hB₂⟩ | ⟨B, hB₁, hB₂⟩);
+      . left;
+        use B;
+        constructor;
+        . exact hBS.1 hB₁;
+        . assumption;
+      . right;
+        use B;
+        constructor;
+        . exact hBS.2 hB₁;
+        . assumption;
 
 variable {BS : Sequent α} {S : ExpandedSequent BS} {A : Formula α}
 
@@ -226,13 +310,14 @@ variable {BS : Sequent α} {S : ExpandedSequent BS} {A : Formula α}
 
 section
 
-variable {BS S₀ : Sequent α} [Fact (⊬ᵍ BS)]
+variable {BS : Sequent α}
 
 open Classical in
-noncomputable def lindenbaum_indexed (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀ : Sequent α} (hS₀ : ⊬ᵍ S₀) : FormulaList α → { S : Sequent α // ⊬ᵍ S }
-| [] => ⟨S₀, hS₀⟩
-| ((A 🡒 B) :: l) =>
-  let ⟨S, hS⟩ := lindenbaum_indexed BS hS₀ l;
+@[grind]
+noncomputable def lindenbaum_indexed (BS : Sequent α) (BS_unprovable : ⊬ᵍ BS) (S₀ : Sequent α) (S₀_unprovable : ⊬ᵍ S₀) : FormulaList α → { S : Sequent α // ⊬ᵍ S }
+| [] => ⟨S₀, S₀_unprovable⟩
+| (A 🡒 B) :: Γ =>
+  let ⟨S, hS⟩ := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ;
   if h : (A 🡒 B) ∈ S.1 then
     if h : ⊬ᵍ ((S.1) ⟹ (insert A S.2)) then ⟨(S.1) ⟹ (insert A S.2), h⟩
     else ⟨((insert B S.1) ⟹ S.2), by
@@ -249,55 +334,167 @@ noncomputable def lindenbaum_indexed (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀ 
       rwa [(show insert (A 🡒 B) S.2 = S.2 by grind)] at this;
   ⟩
   else ⟨S, hS⟩
-| (_ :: l) => lindenbaum_indexed BS hS₀ l
+| _ :: Γ => lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ
 
-lemma mem_lindenbaum_indexed [Fact (⊬ᵍ BS)] {S₀_unProvableGentzen : ⊬ᵍ S₀} :
-  A ∈ (lindenbaum_indexed BS S₀_unProvableGentzen l).1.1 → A ∈ S₀.1 := by
-  induction l with
-  | nil => simp [lindenbaum_indexed];
-  | cons A l ih =>
+lemma subset_lindenbaum_indexed {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀} {Γ : FormulaList α} : S₀ ⊆ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1 := by
+  induction Γ with
+  | nil =>
+    exact ⟨Finset.Subset.refl _, Finset.Subset.refl _⟩
+  | cons A Γ ih =>
     match A with
-    | #a | □A | ⊥ => simpa [lindenbaum_indexed];
-    | (A 🡒 B) =>
-      dsimp [lindenbaum_indexed];
-      generalize eT : lindenbaum_indexed BS S₀_unProvableGentzen l = T at ih;
-      split;
-      . split;
-        . sorry;
-        . sorry;
-      . sorry;
+    | #a | □A | ⊥ => exact ih
+    | A 🡒 B =>
+      dsimp only [lindenbaum_indexed];
+      split_ifs;
+      · exact ⟨ih.1.trans (Finset.subset_insert _ _), ih.2⟩
+      · exact ⟨ih.1, ih.2.trans (Finset.subset_insert _ _)⟩;
+      · exact ⟨ih.1.trans (Finset.subset_insert _ _), ih.2.trans (Finset.subset_insert _ _)⟩
+      · exact ⟨ih.1, ih.2⟩;
 
-noncomputable def lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)]
-  {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (S₀_unProvableGentzen : ⊬ᵍ S₀)
-  : ExpandedSequent BS :=
-  let S := lindenbaum_indexed BS S₀_unProvableGentzen (BS.subfmls.toList);
+lemma subfmls_lindenbaum_indexed
+  {BS_unprovable : ⊬ᵍ BS}
+  {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀} (S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls)
+  {Γ : FormulaList α} (hΓ : ∀ C ∈ Γ, C ∈ BS.subfmls) :
+  (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 ∪ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 ⊆ BS.subfmls := by
+  induction Γ with
+  | nil => exact S₀sub
+  | cons A Γ ih =>
+    replace ih := ih (by grind);
+    match A with
+    | #a | □A | ⊥ => exact ih
+    | (A 🡒 B) =>
+      dsimp only [lindenbaum_indexed];
+      have : (A 🡒 B) ∈ BS.subfmls := hΓ _ (by simp)
+      have : A ∈ BS.subfmls := Sequent.mem_subfmls_subfmls (B := A 🡒 B) ‹_› $ by grind;
+      have : B ∈ BS.subfmls := Sequent.mem_subfmls_subfmls (B := A 🡒 B) ‹_› $ by grind;
+      split_ifs;
+      all_goals
+      . intro;
+        grind;
+
+lemma saturated_lindenbaum_indexed
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (hΓ : (Γ.map (·.complexity)).SortedLE)
+  :
+    let S := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ;
+    (∀ {A B : Formula α}, A 🡒 B ∈ Γ → A 🡒 B ∈ S.1.1 → A ∈ S.1.2 ∨ B ∈ S.1.1) ∧
+    (∀ {A B : Formula α}, A 🡒 B ∈ Γ → A 🡒 B ∈ S.1.2 → A ∈ S.1.1 ∧ B ∈ S.1.2)
+  := by
+  rw [List.sortedLE_iff_pairwise, List.pairwise_map] at hΓ
+  revert hΓ
+  induction Γ with
+  | nil => intro _; constructor <;> intro A B hmem _ <;> simp at hmem
+  | cons x Γ' ih =>
+    intro hΓ
+    rw [List.pairwise_cons] at hΓ
+    obtain ⟨hhead, htail⟩ := hΓ
+    obtain ⟨ihL, ihR⟩ := ih htail
+    match x with
+    | #a | □C | ⊥ =>
+      constructor
+      · intro A B hmem hx
+        refine ihL ?_ hx
+        rcases List.mem_cons.mp hmem with h | h
+        · simp at h
+        · exact h
+      · intro A B hmem hx
+        refine ihR ?_ hx
+        rcases List.mem_cons.mp hmem with h | h
+        · simp at h
+        · exact h
+    | C 🡒 D =>
+      have hunp : ⊬ᵍ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ').1 :=
+        (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ').2
+      dsimp only [lindenbaum_indexed]
+      split_ifs with h1 h2 h3 <;>
+        refine ⟨?_, ?_⟩ <;>
+        intro A B hmem hx <;>
+        simp only [List.mem_cons] at hmem <;>
+        grind [ProvableGentzen.union']
+
+lemma lindenbaum_indexed_saturated_impL_of_sorted_complexity
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (hΓ : (Γ.map (·.complexity)).SortedLE)
+  (h₁ : A 🡒 B ∈ Γ) (h₂ : A 🡒 B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1)
+  : A ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 ∨ B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 :=
+  (saturated_lindenbaum_indexed hΓ).1 h₁ h₂
+
+lemma lindenbaum_indexed_saturated_impL
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (h : A 🡒 B ∈ Γ)
+  :
+  letI S := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable (Γ.insertionSort (·.complexity ≤ ·.complexity));
+  (A 🡒 B ∈ S.1.1) → A ∈ S.1.2 ∨ B ∈ S.1.1 := by
+  apply lindenbaum_indexed_saturated_impL_of_sorted_complexity;
+  . rw [List.map_insertionSort (f := Formula.complexity) (l := Γ) (r := λ A B => ((A.complexity) ≤ (B.complexity))) (s := (· ≤ ·)) (by grind)];
+    exact List.sortedLE_insertionSort (l := Γ.map (·.complexity));
+  . apply List.mem_insertionSort _ |>.mpr h;
+
+lemma lindenbaum_indexed_saturated_impR_of_sorted_complexity
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (hΓ : (Γ.map (·.complexity)).SortedLE)
+  (h₁ : A 🡒 B ∈ Γ) (h₂ : A 🡒 B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2)
+  : A ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.1 ∧ B ∈ (lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable Γ).1.2 :=
+  (saturated_lindenbaum_indexed hΓ).2 h₁ h₂
+
+lemma lindenbaum_indexed_saturated_impR
+  {BS_unprovable : ⊬ᵍ BS} {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀}
+  {Γ : FormulaList α} (h : A 🡒 B ∈ Γ)
+  :
+  letI S := lindenbaum_indexed BS BS_unprovable S₀ S₀_unprovable (Γ.insertionSort (·.complexity ≤ ·.complexity));
+  (A 🡒 B ∈ S.1.2) → A ∈ S.1.1 ∧ B ∈ S.1.2 := by
+  apply lindenbaum_indexed_saturated_impR_of_sorted_complexity;
+  . rw [List.map_insertionSort (f := Formula.complexity) (l := Γ) (r := λ A B => ((A.complexity) ≤ (B.complexity))) (s := (· ≤ ·)) (by grind)];
+    exact List.sortedLE_insertionSort (l := Γ.map (·.complexity));
+  . apply List.mem_insertionSort _ |>.mpr h;
+
+noncomputable def lindenbaum
+  {BS : Sequent α} [BS_unprovable : Fact (⊬ᵍ BS)] (S₀ : Sequent α) (S₀_unprovable : ⊬ᵍ S₀) (S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls) : ExpandedSequent BS :=
+  letI S := lindenbaum_indexed BS (Fact.elim inferInstance) S₀ S₀_unprovable $ BS.subfmls.toList.insertionSort (·.complexity ≤ ·.complexity);
+  haveI : ∀ C ∈ BS.subfmls.toList.insertionSort (fun A B => A.complexity ≤ B.complexity), C ∈ BS.subfmls := by
+    intro _ hB;
+    exact Finset.mem_toList.mp $ List.mem_insertionSort _ |>.mp hB;
   {
     toSequent := S.1,
-    unProvableGentzen := S.2,
+    unprovable := S.2,
+    subset_subfmls := subfmls_lindenbaum_indexed ‹_› ‹_›
     saturated := {
       impL := by
         intro A B h;
-
-        sorry;
+        apply lindenbaum_indexed_saturated_impL ?_ h;
+        exact Finset.mem_toList.mpr $ subfmls_lindenbaum_indexed ‹_› ‹_› $ Finset.mem_union.mpr $ Or.inl h;
       impR := by
         intro A B h;
-        sorry;
+        apply lindenbaum_indexed_saturated_impR ?_ h;
+        exact Finset.mem_toList.mpr $ subfmls_lindenbaum_indexed ‹_› ‹_› $ Finset.mem_union.mpr $ Or.inr h;
     }
-    subset_subfmls := by
-      intro A hA;
-      apply S₀_subfml;
-      sorry;
   }
 
-lemma subset_lindenbaum (BS : Sequent α) [Fact (⊬ᵍ BS)] {S₀} (S₀_subfml : (S₀.ant ∪ S₀.suc) ⊆ BS.subfmls) (hS₀ : ⊬ᵍ S₀) : S₀ ⊆ (lindenbaum BS S₀_subfml hS₀).1 := by
-  sorry
+lemma subset_lindenbaum {BS : Sequent α} [BS_unprovable : Fact (⊬ᵍ BS)] {S₀ : Sequent α} {S₀_unprovable : ⊬ᵍ S₀} {S₀sub : S₀.1 ∪ S₀.2 ⊆ BS.subfmls}
+  : S₀ ⊆ (lindenbaum S₀ S₀_unprovable S₀sub).1 := subset_lindenbaum_indexed
 
 end
 
-instance : Finite (ExpandedSequent BS) := by
-  sorry;
+instance {S : Sequent α} : Subsingleton S.Saturated :=
+  ⟨fun a b => by cases a; cases b; rfl⟩
 
-instance [Fact (⊬ᵍ BS)] : Nonempty (ExpandedSequent BS) := ⟨lindenbaum BS (S₀ := BS) (by grind) (Fact.elim inferInstance)⟩
+lemma ext {S T : ExpandedSequent BS} (ha : S.toSequent.ant = T.toSequent.ant) (hs : S.toSequent.suc = T.toSequent.suc) : S = T := by
+  obtain ⟨⟨ΓS, ΔS⟩, _⟩ := S;
+  obtain ⟨⟨ΓT, ΔT⟩, _⟩ := T;
+  grind;
+
+instance : Finite (ExpandedSequent BS) := by
+  apply Finite.of_injective
+    (β := {x : Finset (Formula α) // x ∈ BS.subfmls.powerset} × {x : Finset (Formula α) // x ∈ BS.subfmls.powerset})
+    (fun S : ExpandedSequent BS => (⟨S.toSequent.ant, Finset.mem_powerset.mpr
+                  (Finset.Subset.trans Finset.subset_union_left S.subset_subfmls)⟩,
+               ⟨S.toSequent.suc, Finset.mem_powerset.mpr
+                  (Finset.Subset.trans Finset.subset_union_right S.subset_subfmls)⟩))
+  intro S T h;
+  simp only [Prod.mk.injEq, Subtype.mk.injEq] at h
+  exact ext h.1 h.2
+
+instance [Fact (⊬ᵍ BS)] : Nonempty (ExpandedSequent BS) := ⟨lindenbaum BS (Fact.elim inferInstance) (by grind)⟩
 
 end ExpandedSequent
 
@@ -330,66 +527,83 @@ lemma truthlemma :
     . intro h T RST;
       exact ih.1 $ RST.2 (by simpa [FormulaFinset.prebox]);
     . intro h;
-      have : ⊬ᵍ (insert (□A) (S.1.1.prebox ∪ S.1.1.prebox.box) ⟹ {A}) := by
-        have := S.unProvableGentzen;
-        contrapose! this;
-        exact ProvableGentzen.wk (ProvableGentzen.boxGL this)
-          (show S.1.1.prebox.box ⊆ S.1.1 by grind)
-          (show {□A} ⊆ S.1.2 by grind);
-      let T := ExpandedSequent.lindenbaum BS (by
-        intro B;
-        sorry;
-        /-
-        simp only [Finset.insert_union, Finset.union_assoc, Finset.union_singleton,
-          Finset.union_insert, Finset.mem_insert, Finset.mem_union, Finset.mem_image];
-        rintro (rfl | rfl | hB | ⟨B, hB, rfl⟩);
-        . app@apply S.subset_subfmls (□A);
-          sorry
-        . exact S.subset_subfmls (by grind);
-        . apply S.subset_subfmls
-          simp;
-          sorry;
-        . sorry;
-        -/
-      ) this;
-      have hT := ExpandedSequent.subset_lindenbaum BS (by sorry) this;
-      apply S.not_forces_box.mpr;
+      apply Model.World.not_forces_box.mpr;
+      let T : ExpandedSequent BS := ExpandedSequent.lindenbaum (insert (□A) (S.1.1.prebox ∪ S.1.1.prebox.box) ⟹ {A})
+        (by
+          have := S.unprovable;
+          contrapose! this;
+          exact ProvableGentzen.wk (ProvableGentzen.boxGL this)
+            (show S.1.1.prebox.box ⊆ S.1.1 by grind)
+            (show {□A} ⊆ S.1.2 by grind);
+        )
+        (by
+          intro B;
+          simp [FormulaFinset.prebox];
+          rintro (rfl | rfl | h | ⟨B, hB, rfl⟩);
+          case inl | inr.inr.inr =>
+            grind [S.subset_subfmls];
+          case inr.inl | inr.inr.inl =>
+            apply Sequent.mem_subfmls_subfmls (B := □B);
+            . apply S.subset_subfmls;
+              grind;
+            . grind;
+        );
       use T;
-      refine ⟨⟨⟨?_, ?_⟩, ?_⟩, ?_⟩
-      . intro B hB;
-        simp only [FormulaFinset.iff_mem_prebox_mem]
-        apply hT.1;
-        sorry;
-        -- grind;
-      . apply Set.not_subset.mpr;
-        use A;
-        constructor;
-        . apply FormulaFinset.iff_mem_prebox_mem.mpr;
-          apply hT.1;
-          simp;
-        . sorry;
-          -- grind [ExpandedSequent.not_mem_both (S := S) (A := A)]
-      . intro B hB;
-        apply hT.1;
-        grind;
-      . exact ih.2 $ hT.2 (by simp);
-  | _ => sorry; -- grind;
+      constructor;
+      . constructor;
+        . apply Set.ssubset_iff_exists.mpr;
+          constructor;
+          . intro B hB;
+            simp [FormulaFinset.prebox];
+            apply ExpandedSequent.subset_lindenbaum.1;
+            grind;
+          . use A;
+            constructor;
+            . simp [FormulaFinset.prebox];
+              apply ExpandedSequent.subset_lindenbaum.1;
+              simp;
+            . by_contra!;
+              apply S.unprovable;
+              apply ProvableGentzen.union' A;
+        . intro B hB;
+          apply ExpandedSequent.subset_lindenbaum.1;
+          simp_all [FormulaFinset.prebox];
+      . apply ih.2;
+        apply ExpandedSequent.subset_lindenbaum.2;
+        simp;
+  | atom a =>
+    constructor
+    · intro h; exact h
+    · intro h hf; exact ExpandedSequent.not_mem_both ⟨hf, h⟩
+  | bot =>
+    constructor
+    · intro h; exact absurd h ExpandedSequent.not_mem_bot_ant
+    · intro _ hf; exact hf
+  | imp A B ihA ihB =>
+    constructor
+    · intro h hsA
+      rcases S.saturated.impL h with hA | hB
+      · exact absurd hsA (ihA.2 hA)
+      · exact ihB.1 hB
+    · intro h hf
+      obtain ⟨hA, hB⟩ := S.saturated.impR h
+      exact (ihB.2 hB) (hf (ihA.1 hA))
 
 lemma truthlemma_ant : A ∈ S.1.1 → S ⊩ A := truthlemma.1
 lemma truthlemma_suc : A ∈ S.1.2 → ¬S ⊩ A := truthlemma.2
 
 theorem completeness {S : Sequent α} (h : ∀ {κ : Type v}, [Nonempty κ] → ∀ M : Model κ α, [M.IsFiniteGL] → M ⊧ S) : ⊢ᵍ S := by
   contrapose! h;
-  replace h : Fact (⊬ᵍ S) := ⟨iff_unprovableGentzen_isEmpty_ProofGentzen.mpr h⟩;
+  have : Fact (⊬ᵍ S) := ⟨iff_unprovableGentzen_isEmpty_ProofGentzen.mpr h⟩;
   use (ExpandedSequent S), inferInstance, (countermodelOf S);
   constructor;
   . infer_instance;
   . dsimp [Model.ValidateSequent, Model.World.ForcesSequent];
     push Not;
-    use (ExpandedSequent.lindenbaum S (S₀ := S) (by grind) (Fact.elim inferInstance));
+    use (ExpandedSequent.lindenbaum S (Fact.elim inferInstance) (by grind));
     constructor;
-    . intro C hC; exact truthlemma_ant $ ExpandedSequent.subset_lindenbaum S _ _ |>.1 hC;
-    . intro D hD; exact truthlemma_suc $ ExpandedSequent.subset_lindenbaum S _ _ |>.2 hD;
+    . intro C hC; exact truthlemma_ant $ ExpandedSequent.subset_lindenbaum.1 hC;
+    . intro D hD; exact truthlemma_suc $ ExpandedSequent.subset_lindenbaum.2 hD;
 
 end Kripke
 
